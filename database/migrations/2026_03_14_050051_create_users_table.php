@@ -16,6 +16,12 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->string('password');
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('last_login_at')->nullable();
+            $table->foreignId('employee_id')
+                    ->constrained('employees')
+                    ->cascadeOnUpdate()
+                    ->restrictOnDelete();
             $table->timestamps();
         });
 
