@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class Employee extends Model
 {
     protected $table = 'employees';
@@ -18,6 +20,7 @@ class Employee extends Model
         'address',
         'phone_number',
         'email',
+        'photo',
         'hire_date',
         'employee_status',
         'position_id',
@@ -38,5 +41,15 @@ class Employee extends Model
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'role_id', 'id');
+    }
+
+    public function shiftSchedulesDetails(): HasMany
+    {
+        return $this->hasMany(ShiftSchedulesDetail::class, 'employee_id', 'id');
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class, 'employee_id', 'id');
     }
 }

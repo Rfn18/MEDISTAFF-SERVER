@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResources;
 use App\Models\Employee;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class EmployeeController extends Controller
 {
@@ -29,12 +31,13 @@ class EmployeeController extends Controller
             'nip' => 'required|string|max:50',
             'nik' => 'required|string|max:50',
             'full_name' => 'required|string|max:255',
-            'gender' => 'required|string|in:L,P',
+            'gender' => 'required|string|in:male,female',
             'birth_place' => 'required|string|max:255',
             'birth_date' => 'required|date',
             'address' => 'required|string',
             'phone_number' => 'required|string|max:20',
             'email' => 'required|email|max:255',
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'hire_date' => 'required|date',
             'employee_status' => 'required|string|max:50',
             'position_id' => 'required|integer|exists:positions,id',
@@ -46,27 +49,73 @@ class EmployeeController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $validate->errors()
-            ], 400);
+            ], 422);
         }
 
-        $employee = Employee::create($request->only([
-            'nip',
-            'nik',
-            'full_name',
-            'gender',
-            'birth_place',
-            'birth_date',
-            'address',
-            'phone_number',
-            'email',
-            'hire_date',
-            'employee_status',
-            'position_id',
-            'department_id',
-            'role_id',
-        ]));
+        $data = $request->all();
+        if ($request->hasFile('photo')) {
+            $photo = $request->file('photo');
+            $photoName = time() . '.' . Str::slug($request->full_name) . '.' . $photo->getClientOriginalExtension();
+            $path = $photo->storeAs('employee', $photoName, 'public');
+            $data['photo'] = $path;  
+        }   
+        $employee = Employee::create($data);
 
         return new ApiResources(true, 'Data employee berhasil ditambahkan.', $employee);
+    }
+
+    
+
+    public function Update(Request $request, $id)
+    {
+        $validate = Validator::make($request->all(), [
+            'nip' => 'sometimes|string|max:50',
+            'nik' => 'sometimes|string|max:50',
+            'full_name' => 'sometimes|string|max:255',
+            'gender' => 'sometimes|string|in:male,female',
+            'birth_place' => 'sometimes|string|max:255',
+            'birth_date' => 'sometimes|date',
+            'address' => 'sometimes|string',
+            'phone_number' => 'sometimes|string|max:20',
+            'email' => 'sometimes|email|max:255',
+            'photo' => 'sometimes|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'hire_date' => 'sometimes|date',
+            'employee_status' => 'sometimes|string|max:50',
+            'position_id' => 'sometimes|integer|exists:positions,id',
+            'department_id' => 'sometimes|integer|exists:departments,id',
+            'role_id' => 'sometimes|integer|exists:roles,id',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 422);
+        }
+
+        $employee = Employee::find($id);
+        if (!$employee) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data employee tidak ditemukan.'
+            ], 404);
+        }
+
+        $data = $request->all();
+
+        if ($request->hasFile('photo')) {
+            if ($employee->photo) {
+                Storage::disk('public')->delete($employee->photo);
+            }
+            $photo = $request->file('photo');
+            $name = $request->full_name ?? $employee->full_name;
+            $photoName = time().'_'.Str::slug($name).'.'.$photo->getClientOriginalExtension();
+            $path = $photo->storeAs('employee', $photoName, 'public');
+            $data['photo'] = $path;
+        }
+
+        $employee->update($data);
+        return new ApiResources(true, 'Data employee berhasil diubah.', $employee);
     }
 
     public function Show($id)
@@ -80,59 +129,6 @@ class EmployeeController extends Controller
         }
 
         return new ApiResources(true, 'Detail data employee.', $employee);
-    }
-
-    public function Update(Request $request, $id)
-    {
-        $validate = Validator::make($request->all(), [
-            'nip' => 'sometimes|string|max:50',
-            'nik' => 'sometimes|string|max:50',
-            'full_name' => 'sometimes|string|max:255',
-            'gender' => 'sometimes|string|in:L,P',
-            'birth_place' => 'sometimes|string|max:255',
-            'birth_date' => 'sometimes|date',
-            'address' => 'sometimes|string',
-            'phone_number' => 'sometimes|string|max:20',
-            'email' => 'sometimes|email|max:255',
-            'hire_date' => 'sometimes|date',
-            'employee_status' => 'sometimes|string|max:50',
-            'position_id' => 'sometimes|integer|exists:positions,id',
-            'department_id' => 'sometimes|integer|exists:departments,id',
-            'role_id' => 'sometimes|integer|exists:roles,id',
-        ]);
-
-        if ($validate->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => $validate->errors()
-            ], 400);
-        }
-
-        $employee = Employee::find($id);
-        if ($employee) {
-            $employee->update($request->only([
-            'nip',
-            'nik',
-            'full_name',
-            'gender',
-            'birth_place',
-            'birth_date',
-            'address',
-            'phone_number',
-            'email',
-            'hire_date',
-            'employee_status',
-            'position_id',
-            'department_id',
-            'role_id',
-            ]));
-            return new ApiResources(true, 'Data employee berhasil diubah.', $employee);
-        }
-
-        return response()->json([
-            'status' => false,
-            'message' => 'Data employee tidak ditemukan.'
-        ], 404);
     }
 
     public function Destroy($id)
