@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ApiResources;
+use App\Models\LeaveType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class LeaveTypeController extends Controller
 {
@@ -12,7 +15,15 @@ class LeaveTypeController extends Controller
      */
     public function index()
     {
-        //
+        $leaveType = LeaveType::paginate(10);
+        if ($leaveType->count() === 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'List data leave type.', $leaveType);
     }
 
     /**
@@ -28,38 +39,84 @@ class LeaveTypeController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validate = Validator::make($request->all(), [
+            'leave_type_name' => 'required|string|max:255',
+            'max_days' => 'required|integer',
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 400);
+        }
+
+        $leaveType = LeaveType::create($request->only([
+            'leave_type_name',
+            'max_days',
+        ]));
+
+        return new ApiResources(true, 'Data leave type berhasil ditambahkan.', $leaveType);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
-    {
-        //
+    public function show( $id)
+    {   
+        $leaveType = LeaveType::find($id);
+        if ($leaveType->count() === 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data leave type tidak ditemukan.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'Detail data leave type.', $leaveType);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function update(Request $request, $id)
     {
-        //
-    }
+        $validate = Validator::make($request->all(), [
+            'leave_type_name' => 'sometimes|string|max:255',
+            'max_days' => 'sometimes|integer',
+        ]);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 400);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+        $leaveType = LeaveType::find($id);
+        if ($leaveType->count() === 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data leave type tidak ditemukan.'
+            ], 404);
+        }
+
+        $leaveType->update($request->only([
+            'leave_type_name',
+            'max_days',
+        ]));
+
+        return new ApiResources(true, 'Data leave type berhasil diubah.', $leaveType);
+    }
+    public function destroy( $id)
     {
-        //
+        $leaveType = LeaveType::find($id);
+        if ($leaveType->count() === 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data leave type tidak ditemukan.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'Data leave type berhasil dihapus.', $leaveType);
     }
 }

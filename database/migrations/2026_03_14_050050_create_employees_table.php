@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('photo')->nullable();
             $table->date('hire_date');
-            $table->string('employee_status');
+            $table->string('employee_status')->nullable();
             
             $table->foreignId('position_id')
                 ->constrained('positions')
