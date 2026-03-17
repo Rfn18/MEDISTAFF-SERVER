@@ -22,9 +22,9 @@ return new class extends Migration
             $table->integer('month');
             $table->integer('year');
             $table->decimal('base_salary', 12, 2)->default(0);
-            $table->decimal('allownance', 12, 2)->default(0);
+            $table->decimal('total_allowance', 12, 2)->default(0);
+            $table->decimal('total_deduction', 12, 2)->default(0);
             $table->decimal('overtime_pay', 12, 2)->default(0);
-            $table->decimal('deduction', 12, 2)->default(0);
             $table->decimal('total_salary', 12, 2)->default(0);
             $table->timestamps();
         });

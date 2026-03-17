@@ -81,7 +81,7 @@ class ShiftScheduleDetailController extends Controller
         }
     }
 
-    public function show(Request $request, $id)
+    public function show($id)
     {
         $shiftScheduleDetail = ShiftSchedulesDetail::with('employee', 'departement', 'shift', 'shiftSchedule')->find($id)->first();
         if ($shiftScheduleDetail->count() === 0) {

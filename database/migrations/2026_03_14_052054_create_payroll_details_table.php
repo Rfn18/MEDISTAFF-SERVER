@@ -14,13 +14,22 @@ return new class extends Migration
         Schema::create('payroll_details', function (Blueprint $table) {
             $table->id();
             $table->foreignId('allowance_id')
+                ->nullable()
                 ->constrained('allowances')
                 ->cascadeOnUpdate()
-                ->restrictOnDelete();
+                ->nullOnDelete();
+            $table->foreignId('deduction_id')
+                ->nullable()
+                ->constrained('deductions')
+                ->cascadeOnUpdate()
+                ->nullOnDelete();
+            $table->enum('type', ['allowance', 'deduction']);
             $table->foreignId('payroll_id')
                 ->constrained('payrolls')
                 ->cascadeOnUpdate()
                 ->restrictOnDelete();
+            $table->boolean('is_custom')->default(false);
+            $table->string('name');
             $table->decimal('amount', 12, 2)->default(0);
             $table->timestamps();
         });

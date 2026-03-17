@@ -19,6 +19,11 @@ class PayrollDetail extends Model
         return $this->belongsTo(Allowance::class, 'allowance_id', 'id');
     }
 
+    public function deduction(): BelongsTo
+    {
+        return $this->belongsTo(Deduction::class, 'deduction_id', 'id');
+    }
+
     public function payroll(): BelongsTo
     {
         return $this->belongsTo(Payroll::class, 'payroll_id', 'id');
