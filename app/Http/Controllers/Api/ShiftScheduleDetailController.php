@@ -28,10 +28,10 @@ class ShiftScheduleDetailController extends Controller
     public function store(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'employee_id' => 'required|integer|exists:employees,id',
-            'departement_id' => 'required|integer|exists:departments,id',
-            'shift_id' => 'required|integer|exists:shifts,id',
-            'shift_schedule_id' => 'required|integer|exists:shift_schedules,id',
+            '*.employee_id' => 'required|integer|exists:employees,id',
+            '*.departement_id' => 'required|integer|exists:departments,id',
+            '*.shift_id' => 'required|integer|exists:shifts,id',
+            '*.shift_schedule_id' => 'required|integer|exists:shift_schedules,id',
         ]);
 
         if ($validate->fails()) {
@@ -76,7 +76,7 @@ class ShiftScheduleDetailController extends Controller
             DB::rollBack();
             return response()->json([
                 'status' => false,
-                'message' => 'Data shift schedule detail gagal ditambahkan.'
+                'message' => $e->getMessage()
             ], 500);    
         }
     }

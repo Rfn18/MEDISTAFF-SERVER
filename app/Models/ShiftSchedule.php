@@ -5,8 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\ShiftSchedulesDetail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class ShiftSchedule extends Model
 {
+    use HasFactory ;
     protected $table = 'shift_schedules';
     protected $fillable = [
         'schedule_date',

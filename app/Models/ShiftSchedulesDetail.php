@@ -8,8 +8,11 @@ use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Shift;
 use App\Models\ShiftSchedule;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class ShiftSchedulesDetail extends Model
 {
+    use HasFactory;
     protected $table = 'shift_schedules_details';
     protected $fillable = [
         'employee_id',

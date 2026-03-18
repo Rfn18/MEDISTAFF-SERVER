@@ -27,7 +27,6 @@ class ShiftScheduleController extends Controller
         $validate = Validator::make($request->all(), [
             'schedule_date' => 'required|date',
             'created_by' => 'required|string',
-            'updated_by' => 'required|string',
         ]);
 
         if ($validate->fails()) {
@@ -37,16 +36,16 @@ class ShiftScheduleController extends Controller
             ], 400);
         }
 
-        $shiftSchedule = ShiftSchedule::create($request->only([
-            'schedule_date',
-            'created_by',
-            'updated_by',
-        ]));
+        $shiftSchedule = ShiftSchedule::create([
+            'schedule_date' => $request->schedule_date,
+            'created_by' => $request->created_by,
+            'updated_by' => "",
+        ]);
 
         return new ApiResources(true, 'Data shift schedule berhasil ditambahkan.', $shiftSchedule);
     }
 
-    public function show(string $id)
+    public function show( $id)
     {
         $shiftSchedule = ShiftSchedule::with('shiftSchedulesDetails')->find($id)->first();
         if ($shiftSchedule->count() === 0) {
@@ -55,7 +54,7 @@ class ShiftScheduleController extends Controller
                 'message' => 'Data shift schedule tidak ditemukan.'
             ], 404);
         }
-
+        $shiftSchedule->load('shiftSchedulesDetails');
         return new ApiResources(true, 'Detail data shift schedule.', $shiftSchedule);
     }
 

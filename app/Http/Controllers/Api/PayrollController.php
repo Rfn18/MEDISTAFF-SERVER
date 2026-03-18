@@ -55,6 +55,7 @@ class PayrollController extends Controller
        $payroll = Payroll::create([
             'employee_id' => $request->employee_id,
             'month' => $request->month,
+            
             'year' => $request->year,
             'base_salary' => $request->base_salary,
             'total_allowance' => 0,

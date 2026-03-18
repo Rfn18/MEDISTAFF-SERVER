@@ -22,7 +22,7 @@ return new class extends Migration
             $table->time('check_out_time')->nullable();
             $table->string('attendance_method')->nullable();
             $table->string('status')->nullable();
-            $table->integer('last_minutes')->nullable();
+            $table->integer('late_minutes')->nullable();
 
             $table->timestamps();
         });
