@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AttendanceSumary extends Model
 {
-    protected $table = 'attendance_sumary';
+    protected $table = 'attendance_sumaries';
     protected $fillable = [
         'employee_id',
         'month',

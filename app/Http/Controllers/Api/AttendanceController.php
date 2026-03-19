@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResources;
 use App\Models\Attendance;
-use App\Models\Employee;
+use App\Models\AttendanceSumary;
 use App\Models\LeaveRequest;
 use App\Models\ShiftSchedulesDetail;
 use Carbon\Carbon;
@@ -142,38 +142,106 @@ class AttendanceController extends Controller
             ], 400);
         }
 
+        $employeeId = $request->employee_id;
+        $month = $request->month;
+        $year = $request->year;
 
-        $attendance = Attendance::where('employee_id', $request->employee_id)
-            ->whereMonth('attendance_date', $request->month)
-            ->whereYear('attendance_date', $request->year)
+        $shiftDetails = ShiftSchedulesDetail::where('employee_id', $employeeId)
+            ->whereHas('shiftSchedule', function ($query) use ($month, $year) {
+                $query->whereMonth('schedule_date', $month)
+                    ->whereYear('schedule_date', $year);
+            })
+            ->with(['shiftSchedule', 'shift'])
             ->get();
 
-        if ($attendance->count() === 0) {
+        $totalScheduledDays = $shiftDetails->count();
+
+        if ($totalScheduledDays === 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Data absen tidak ditemukan.'
+                'message' => 'Tidak ada jadwal shift untuk employee di periode ini.'
             ], 404);
         }
-        
-        $total_present = Attendance::where('employee_id', $request->employee_id)
-        ->whereMonth('attendance_date', $request->month)
-        ->whereYear('attendance_date', $request->year)
-        ->whereIn('status', ['on_time', 'late'])
-        ->count();
-        
-        $total_late = Attendance::where('employee_id', $request->employee_id)
-        ->whereMonth('attendance_date', $request->month)
-        ->whereYear('attendance_date', $request->year)
-        ->where('status', 'late')
-        ->count();
-        
-        $total_leave = LeaveRequest::where('employee_id', $request->employee_id)
-        ->whereMonth('start_date', $request->month)
-        ->whereYear('start_date', $request->year)
-        ->count();
 
+        $attendances = Attendance::where('employee_id', $employeeId)
+            ->whereMonth('attendance_date', $month)
+            ->whereYear('attendance_date', $year)
+            ->get();
+
+        $attendanceByStatus = $attendances->groupBy('status');
+
+        $totalOnTime = $attendanceByStatus->get('on_time', collect())->count();
+        $totalLate = $attendanceByStatus->get('late', collect())->count();
+        $totalPresent = $totalOnTime + $totalLate;
+
+        $leaveRequests = LeaveRequest::where('employee_id', $employeeId)
+        ->where('status', 'approved')
+        ->where(function ($query) use ($month, $year) {
+            $query->where(function ($q) use ($month, $year) {
+                $q->whereMonth('start_date', $month)
+                  ->whereYear('start_date', $year);
+            })->orWhere(function ($q) use ($month, $year) {
+                $q->whereMonth('end_date', $month)
+                  ->whereYear('end_date', $year);
+            })->orWhere(function ($q) use ($month, $year) {
+                $startOfMonth = "{$year}-{$month}-01";
+                $endOfMonth = date('Y-m-t', strtotime($startOfMonth));
+                $q->where('start_date', '<', $startOfMonth)
+                  ->where('end_date', '>', $endOfMonth);
+            });
+        })
+        ->with('leaveType')
+        ->get();
+        $totalLeaveDays = 0;
+        $totalSickDays = 0;
         
-        dd($total_late, $attendance, $total_present, $total_leave);
+        foreach ($leaveRequests as $leave) {
+            $leaveDaysInMonth = $this->calculateLeaveDaysInMonth(
+                $leave->start_date,
+                $leave->end_date,
+                $month,
+                $year
+            );
+
+            if ($leave->leave_type_id == 1) {
+                $totalSickDays += $leaveDaysInMonth;
+            } else {
+                $totalLeaveDays += $leaveDaysInMonth;
+            }
+        }
+        $totalAbsent = max(0, $totalScheduledDays - $totalPresent - $totalLeaveDays - $totalSickDays);
+
+        $summary = AttendanceSumary::updateOrCreate([
+            'employee_id' => $employeeId,
+            'month' => $month,
+            'year' => $year
+        ], [
+            'total_present' => $totalPresent,
+            'total_late' => $totalLate,
+            'total_absent' => $totalAbsent,
+            'total_leave' => $totalLeaveDays,
+            'total_sick' => $totalSickDays
+        ]);
         
+        return new ApiResources(true, 'Berhasiil Input Rankuman Absen.', $summary);
+    }
+    private function calculateLeaveDaysInMonth($startDate, $endDate, $month, $year)
+    {
+        $start = new \DateTime($startDate);
+        $end = new \DateTime($endDate);
+        
+        $monthStart = new \DateTime("{$year}-{$month}-01");
+        $monthEnd = new \DateTime($monthStart->format('Y-m-t'));
+        
+        $effectiveStart = max($start, $monthStart);
+        $effectiveEnd = min($end, $monthEnd);
+        
+        if ($effectiveStart > $effectiveEnd) {
+            return 0;
+        }
+    
+        $diff = $effectiveStart->diff($effectiveEnd);
+        return $diff->days + 1;
     }
 }
+

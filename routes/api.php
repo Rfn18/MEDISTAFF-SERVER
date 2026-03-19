@@ -29,7 +29,11 @@ Route::apiResource('shifts', ShiftController::class);
 Route::apiResource('shift-schedules', ShiftScheduleController::class);
 Route::apiResource('shift-schedule-details', ShiftScheduleDetailController::class);
 Route::apiResource('leave-types', LeaveTypeController::class);
+
 Route::apiResource('payrolls', PayrollController::class);
+Route::post('payroll-generates', [PayrollController::class, 'payroll']);
+Route::post('payroll-allowances', [PayrollController::class, 'createAllowance']);
+Route::post('payroll-deductions', [PayrollController::class, 'createDeduction']);
 
 // Attandance Routes
 Route::post('check-in', [AttendanceController::class, 'checkIn'])->middleware('auth:sanctum');
