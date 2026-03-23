@@ -65,6 +65,7 @@ class UserAuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'employee_id' => $request->employee_id,
+            'role_id' => 3,
             'is_active' => true,
         ]);
         

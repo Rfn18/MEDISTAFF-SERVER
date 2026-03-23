@@ -12,6 +12,7 @@ use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\ShiftController;
+use App\Http\Controllers\Api\UserManageController;
 use Illuminate\Support\Facades\Route;
 
 // Auth Routes
@@ -29,6 +30,7 @@ Route::apiResource('shifts', ShiftController::class);
 Route::apiResource('shift-schedules', ShiftScheduleController::class);
 Route::apiResource('shift-schedule-details', ShiftScheduleDetailController::class);
 Route::apiResource('leave-types', LeaveTypeController::class);
+Route::apiResource('users', UserManageController::class);
 
 Route::apiResource('payrolls', PayrollController::class);
 Route::post('payroll-generates', [PayrollController::class, 'payroll']);

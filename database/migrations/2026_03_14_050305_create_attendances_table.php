@@ -18,10 +18,12 @@ return new class extends Migration
                 ->cascadeOnUpdate()
                 ->restrictOnDelete();
             $table->date('attendance_date');
+            $table->decimal('latitude', 10, 8);
+            $table->decimal('longitude', 11, 8);
             $table->time('check_in_time')->nullable();
             $table->time('check_out_time')->nullable();
-            $table->string('attendance_method')->nullable();
-            $table->string('status')->nullable();
+            $table->enum('status', ['present', 'late', 'absent', 'on_leave'])->default('present');
+            $table->string('device_id');
             $table->integer('late_minutes')->nullable();
 
             $table->timestamps();

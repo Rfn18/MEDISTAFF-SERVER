@@ -22,6 +22,12 @@ return new class extends Migration
                     ->constrained('employees')
                     ->cascadeOnUpdate()
                     ->restrictOnDelete();
+                    
+            $table->foreignId('role_id')
+                ->constrained('roles')
+                ->cascadeOnUpdate()
+                ->restrictOnDelete();
+
             $table->timestamps();
         });
 

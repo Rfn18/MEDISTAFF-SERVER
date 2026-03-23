@@ -12,7 +12,7 @@ class RoleController extends Controller
 {
     public function Index() {   
         $role = Role::paginate(10);
-        if ($role->count() === 0) {
+        if ($role->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -45,7 +45,7 @@ class RoleController extends Controller
 
     public function Show($id) {
         $role = Role::where('id', $id)->first();
-        if ($role->count() === 0) {
+        if ($role->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data role tidak ditemukan.'

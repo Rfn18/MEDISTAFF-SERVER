@@ -13,7 +13,7 @@ class DepartmentController extends Controller
     public function Index()
     {
         $department = Department::paginate(10);
-        if ($department->count() === 0) {
+        if ($department->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -50,7 +50,7 @@ class DepartmentController extends Controller
     public function Show($id)
     {
         $department = Department::where('id', $id)->first();
-        if ($department->count() === 0) {
+        if (!$department) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data department tidak ditemukan.'

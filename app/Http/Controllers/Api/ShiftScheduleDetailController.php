@@ -15,7 +15,7 @@ class ShiftScheduleDetailController extends Controller
     public function index()
     {
         $shiftScheduleDetail = ShiftSchedulesDetail::with('employee', 'departement', 'shift', 'shiftSchedule')->paginate(10);
-        if ($shiftScheduleDetail->count() === 0) {
+        if ($shiftScheduleDetail->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -83,8 +83,8 @@ class ShiftScheduleDetailController extends Controller
 
     public function show($id)
     {
-        $shiftScheduleDetail = ShiftSchedulesDetail::with('employee', 'departement', 'shift', 'shiftSchedule')->find($id)->first();
-        if ($shiftScheduleDetail->count() === 0) {
+        $shiftScheduleDetail = ShiftSchedulesDetail::with('employee', 'departement', 'shift', 'shiftSchedule')->find($id);
+        if (!$shiftScheduleDetail) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data shift schedule detail tidak ditemukan.'

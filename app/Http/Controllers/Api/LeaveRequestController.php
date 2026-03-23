@@ -17,7 +17,7 @@ class LeaveRequestController extends Controller
     public function index()
     {
         $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->paginate(10);
-        if ($leaveRequest->count() === 0) {
+        if ($leaveRequest->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -65,8 +65,8 @@ class LeaveRequestController extends Controller
      */
     public function show( $id)
     {
-        $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->find($id)->first();
-        if ($leaveRequest->count() === 0) {
+        $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->find($id);
+        if (!$leaveRequest) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data leave request tidak ditemukan.'
@@ -105,7 +105,7 @@ class LeaveRequestController extends Controller
         }
 
         $leaveRequest = LeaveRequest::find($id);
-        if ($leaveRequest->count() === 0) {
+        if (!$leaveRequest) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data leave request tidak ditemukan.'
@@ -144,7 +144,7 @@ class LeaveRequestController extends Controller
 
     public function reject(Request $request, $id) {
         $leaveRequest = LeaveRequest::find($id);
-        if ($leaveRequest->count() === 0) {
+        if (!$leaveRequest) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data leave request tidak ditemukan.'
@@ -165,14 +165,14 @@ class LeaveRequestController extends Controller
     public function destroy($id)
     {
         $leaveRequest = LeaveRequest::find($id);
-        if ($leaveRequest->count() === 0) {
-            $leaveRequest->delete();
-            return new ApiResources(true, 'Data leave request berhasil dihapus.', $leaveRequest);
+        if (!$leaveRequest) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data leave request tidak ditemukan.'
+            ], 404);
         }
 
-        return response()->json([
-            'status' => false,
-            'message' => 'Data leave request tidak ditemukan.'
-        ], 404);
+        $leaveRequest->delete();
+        return new ApiResources(true, 'Data leave request berhasil dihapus.', $leaveRequest);
     }
 }

@@ -23,7 +23,7 @@ class ApiResources extends JsonResource
         return [
             'status' => $this->status,
             'message' => $this->message,
-            'data' => $this->resource
+            'datas' => $this->resource
         ];
     }
 }

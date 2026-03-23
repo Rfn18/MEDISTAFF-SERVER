@@ -16,7 +16,7 @@ class AttendanceController extends Controller
 {
     public function index() {
         $attandance = Attendance::paginate(10);
-        if ($attandance->count() === 0) {
+        if ($attandance->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'

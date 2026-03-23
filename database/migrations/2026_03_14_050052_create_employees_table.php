@@ -36,11 +36,6 @@ return new class extends Migration
                 ->cascadeOnUpdate()
                 ->restrictOnDelete();
 
-            $table->foreignId('role_id')
-                ->constrained('roles')
-                ->cascadeOnUpdate()
-                ->restrictOnDelete();
-
             $table->timestamps();
         });
     }

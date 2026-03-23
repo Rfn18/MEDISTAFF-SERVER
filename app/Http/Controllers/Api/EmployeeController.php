@@ -15,7 +15,7 @@ class EmployeeController extends Controller
     public function Index()
     {
         $employee = Employee::with(['position', 'department'])->paginate(10);
-        if ($employee->count() === 0) {
+        if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -37,12 +37,10 @@ class EmployeeController extends Controller
             'address' => 'required|string',
             'phone_number' => 'required|string|max:20',
             'email' => 'required|email|max:255',
-            'photo' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'photo' => 'sometimes|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'hire_date' => 'required|date',
-            'employee_status' => 'required|string|max:50',
             'position_id' => 'required|integer|exists:positions,id',
             'department_id' => 'required|integer|exists:departments,id',
-            'role_id' => 'required|integer|exists:roles,id',
         ]);
 
         if ($validate->fails()) {
@@ -59,6 +57,8 @@ class EmployeeController extends Controller
             $path = $photo->storeAs('employee', $photoName, 'public');
             $data['photo'] = $path;  
         }   
+
+        $data['status'] = 'active';
         $employee = Employee::create($data);
 
         return new ApiResources(true, 'Data employee berhasil ditambahkan.', $employee);
@@ -83,7 +83,6 @@ class EmployeeController extends Controller
             'employee_status' => 'sometimes|string|max:50',
             'position_id' => 'sometimes|integer|exists:positions,id',
             'department_id' => 'sometimes|integer|exists:departments,id',
-            'role_id' => 'sometimes|integer|exists:roles,id',
         ]);
 
         if ($validate->fails()) {
@@ -121,7 +120,7 @@ class EmployeeController extends Controller
     public function Show($id)
     {
         $employee = Employee::with(['position', 'department'])->where('id', $id)->first();
-        if ($employee->count() === 0) {
+        if (!$employee) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data employee tidak ditemukan.'

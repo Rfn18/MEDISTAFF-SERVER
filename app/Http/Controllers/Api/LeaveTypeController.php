@@ -16,7 +16,7 @@ class LeaveTypeController extends Controller
     public function index()
     {
         $leaveType = LeaveType::paginate(10);
-        if ($leaveType->count() === 0) {
+        if ($leaveType->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -65,7 +65,7 @@ class LeaveTypeController extends Controller
     public function show( $id)
     {   
         $leaveType = LeaveType::find($id);
-        if ($leaveType->count() === 0) {
+        if (!$leaveType) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data leave type tidak ditemukan.'
@@ -93,7 +93,7 @@ class LeaveTypeController extends Controller
         }
 
         $leaveType = LeaveType::find($id);
-        if ($leaveType->count() === 0) {
+        if (!$leaveType) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data leave type tidak ditemukan.'
@@ -110,7 +110,7 @@ class LeaveTypeController extends Controller
     public function destroy( $id)
     {
         $leaveType = LeaveType::find($id);
-        if ($leaveType->count() === 0) {
+        if (!$leaveType) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data leave type tidak ditemukan.'

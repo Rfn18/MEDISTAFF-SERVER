@@ -13,7 +13,7 @@ class PositionController extends Controller
     public function Index()
     {
         $position = Position::paginate(10);
-        if ($position->count() === 0) {
+        if ($position->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -50,7 +50,7 @@ class PositionController extends Controller
     public function Show($id)
     {
         $position = Position::where('id', $id)->first();
-        if ($position->count() === 0) {
+        if (!$position) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data position tidak ditemukan.'

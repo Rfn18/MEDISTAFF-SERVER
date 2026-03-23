@@ -12,7 +12,7 @@ class ShiftScheduleController extends Controller
     public function index()
     {
         $shiftSchedule = ShiftSchedule::with('shiftSchedulesDetails')->paginate(10);
-        if ($shiftSchedule->count() === 0) {
+        if ($shiftSchedule->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -47,8 +47,8 @@ class ShiftScheduleController extends Controller
 
     public function show( $id)
     {
-        $shiftSchedule = ShiftSchedule::with('shiftSchedulesDetails')->find($id)->first();
-        if ($shiftSchedule->count() === 0) {
+        $shiftSchedule = ShiftSchedule::with('shiftSchedulesDetails')->find($id);
+        if (!$shiftSchedule) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data shift schedule tidak ditemukan.'

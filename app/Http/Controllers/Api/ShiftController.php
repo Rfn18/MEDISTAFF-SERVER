@@ -16,7 +16,7 @@ class ShiftController extends Controller
     public function index()
     {
         $shift = Shift::paginate(10);
-        if ($shift->count() === 0) {
+        if ($shift->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
@@ -69,7 +69,7 @@ class ShiftController extends Controller
     public function show($id)
     {
         $shift = Shift::where('id', $id)->first();
-        if ($shift->count() === 0) {
+        if (!$shift) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data shift tidak ditemukan.'

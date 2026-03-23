@@ -39,11 +39,6 @@ class Employee extends Model
     {
         return $this->belongsTo(Department::class, 'department_id', 'id');
     }
-    
-    public function role(): BelongsTo
-    {
-        return $this->belongsTo(Role::class, 'role_id', 'id');
-    }
 
     public function shiftSchedulesDetails(): HasMany
     {
