@@ -33,7 +33,6 @@ class LeaveRequestController extends Controller
     public function store(Request $request)
     {
         $validate = Validator::make($request->all(), [
-            'employee_id' => 'required|exists:employees,id',
             'leave_type_id' => 'required|exists:leave_types,id',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
@@ -48,14 +47,36 @@ class LeaveRequestController extends Controller
             ], 400);
         }
 
-        $leaveRequest = LeaveRequest::create($request->only([
-            'employee_id',
-            'leave_type_id',
-            'start_date',
-            'end_date',
-            'reason',
-            'status' => 'pending',
-        ]));
+        if (Carbon::parse($request->start_date)->gt(Carbon::parse($request->end_date))) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal akhir harus lebih besar dari tanggal awal.'
+            ], 400);
+        }
+
+        if (Carbon::parse($request->start_date)->lessThan(Carbon::today())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal awal harus lebih besar atau sama dari hari ini.'
+            ], 400);
+        }
+
+        if (Carbon::parse($request->end_date)->lt(Carbon::today())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal akhir harus lebih besar dari hari ini.'
+            ], 400);
+        }
+
+        $leaveRequest = LeaveRequest::create([
+            'employee_id'   => auth()->id(),
+            'leave_type_id' => $request->leave_type_id,
+            'start_date'    => $request->start_date,
+            'end_date'      => $request->end_date,
+            'reason'        => $request->reason,
+            'status'        => 'pending',
+        ]);
+
 
         return new ApiResources(true, 'Data leave request berhasil ditambahkan.', $leaveRequest);
     }
@@ -63,7 +84,7 @@ class LeaveRequestController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show( $id)
+    public function show($id)
     {
         $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->find($id);
         if (!$leaveRequest) {
@@ -90,7 +111,6 @@ class LeaveRequestController extends Controller
     public function update(Request $request, $id)
     {
         $validate = Validator::make($request->all(), [
-            'employee_id' => 'sometimes|exists:employees,id',
             'leave_type_id' => 'sometimes|exists:leave_types,id',
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date',
@@ -112,14 +132,37 @@ class LeaveRequestController extends Controller
             ], 404);
         }
 
-        $leaveRequest->update($request->only([
-            'employee_id',
-            'leave_type_id',
-            'start_date',
-            'end_date',
-            'reason',
-            'status' => 'pending',
-        ]));
+        if (Carbon::parse($request->start_date)->gt(Carbon::parse($request->end_date))) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal akhir harus lebih besar dari tanggal awal.'
+            ], 400);
+        }
+
+        if (Carbon::parse($request->start_date)->lt(Carbon::today())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal awal harus lebih besar dari hari ini.'
+            ], 400);
+        }
+
+        if (Carbon::parse($request->end_date)->lt(Carbon::today())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal akhir harus lebih besar dari hari ini.'
+            ], 400);
+        }
+
+        $leaveRequestValue = LeaveRequest::where('employee_id', auth()->id())->where('start_date', $request->start_date)->where('end_date', $request->end_date)->first();
+
+        $leaveRequest->update([
+            'employee_id'   => auth()->id(),
+            'leave_type_id' => $request->leave_type_id,
+            'start_date'    => $request->start_date,
+            'end_date'      => $request->end_date,
+            'reason'        => $request->reason,
+            'status'        => $leaveRequestValue->status,
+        ]);
 
         return new ApiResources(true, 'Data leave request berhasil diubah.', $leaveRequest);
     }

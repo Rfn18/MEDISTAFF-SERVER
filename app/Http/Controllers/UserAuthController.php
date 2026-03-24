@@ -50,6 +50,7 @@ class UserAuthController extends Controller
             'email' => 'required|email|unique:users,email',
             'last_login_at' => 'nullable|dateTime',
             'employee_id' => 'required|integer|exists:employees,id',
+            'device_id' => 'required|string',
             'password' => 'required|string|min:8',
         ]);
 
@@ -65,6 +66,7 @@ class UserAuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'employee_id' => $request->employee_id,
+            'device_id' => $request->device_id,
             'role_id' => 3,
             'is_active' => true,
         ]);

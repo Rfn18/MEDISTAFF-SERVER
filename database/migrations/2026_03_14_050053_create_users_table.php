@@ -22,6 +22,7 @@ return new class extends Migration
                     ->constrained('employees')
                     ->cascadeOnUpdate()
                     ->restrictOnDelete();
+            $table->string('device_id');
                     
             $table->foreignId('role_id')
                 ->constrained('roles')

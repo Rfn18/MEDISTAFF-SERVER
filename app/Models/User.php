@@ -26,6 +26,8 @@ class User extends Authenticatable
         'is_active',
         'last_login_at',
         'employee_id',
+        'device_id',
+        'role_id',
     ];
 
     public function employee(): BelongsTo

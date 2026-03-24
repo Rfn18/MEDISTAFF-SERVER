@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Resources\ApiResources;
 use App\Models\Shift;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 
 class ShiftController extends Controller
@@ -50,6 +51,21 @@ class ShiftController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $validate->errors()
+            ], 400);
+        }
+
+        if (Carbon::parse($request->start_time)->gt(Carbon::parse($request->end_time))) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Waktu akhir harus lebih besar dari waktu awal.'
+            ], 400);
+        }
+
+        $shift = Shift::where('shift_name', $request->shift_name)->first();
+        if ($shift) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data shift sudah ada.'
             ], 400);
         }
 

@@ -17,6 +17,9 @@ class Attendance extends Model
         'attandence_method',
         'status',
         'late_minutes',
+        'device_id',
+        'latitude',
+        'longitude',
     ];
 
     public function employee(): BelongsTo

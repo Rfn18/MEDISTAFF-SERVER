@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Resources\ApiResources;
 use App\Models\ShiftSchedule;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 class ShiftScheduleController extends Controller
 {
@@ -33,6 +34,21 @@ class ShiftScheduleController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $validate->errors()
+            ], 400);
+        }
+
+        $shiftSchedule = ShiftSchedule::where('schedule_date', $request->schedule_date)->first();
+        if ($shiftSchedule) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data shift schedule sudah ada.'
+            ], 400);
+        }
+
+        if (Carbon::parse($request->schedule_date)->lessThan(Carbon::today())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal harus lebih besar atau sama dengan tanggal hari ini.'
             ], 400);
         }
 
@@ -70,6 +86,13 @@ class ShiftScheduleController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $validate->errors()
+            ], 400);
+        }
+
+        if (Carbon::parse($request->schedule_date)->lessThan(Carbon::today())) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tanggal harus lebih besar atau sama dengan tanggal hari ini.'
             ], 400);
         }
 
