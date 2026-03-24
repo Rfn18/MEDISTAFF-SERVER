@@ -10,7 +10,10 @@ class PayrollDetail extends Model
     protected $table = 'payroll_details';
     protected $fillable = [
         'allowance_id',
+        'deduction_id',
         'payroll_id',
+        'name',
+        'is_custom',
         'amount',
     ];
 

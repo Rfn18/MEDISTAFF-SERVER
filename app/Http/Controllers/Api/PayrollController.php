@@ -142,6 +142,9 @@ class PayrollController extends Controller
         $validate = Validator::make($request->all(), [
             'payroll_id' => 'required|exists:payrolls,id',
             'allowance_id' => 'required|exists:allowances,id',
+            'name' => 'sometimes|string',
+            'is_custom' => 'sometimes|string',
+            'amount' => 'sometimes|integer'
         ]);
 
         if ($validate->fails()) {
@@ -169,14 +172,32 @@ class PayrollController extends Controller
             ], 404);
         }
 
-        $payrollDetail = PayrollDetail::create([
-            'payroll_id' => $request->payroll_id,
-            'allowance_id' => $request->allowance_id,
-            'amount' => $allowace->amount,
-            'name' => $allowace->allowance_name,
-            'type' => 'allowance',
-            'is_custom' => false
-        ]);
+        if (PayrollDetail::where('payroll_id', $request->payroll_id)->where('allowance_id', $request->allowance_id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data allowance sudah ada.'
+            ], 422);
+        }
+
+        if ($request->is_custom) {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'allowance_id' => $request->allowance_id,
+                'amount' => $request->amount,
+                'name' => $request->name,
+                'type' => 'allowance',
+                'is_custom' => true
+            ]);
+        } else {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'allowance_id' => $request->allowance_id,
+                'amount' => $allowace->amount,
+                'name' => $allowace->allowance_name,
+                'type' => 'allowance',
+                'is_custom' => false
+            ]);
+        }
 
         $payroll->increment('total_allowance', $allowace->amount);
         $payroll->increment('total_salary', $allowace->amount); 
@@ -188,6 +209,9 @@ class PayrollController extends Controller
         $validate = Validator::make($request->all(), [
             'payroll_id' => 'required|exists:payrolls,id',
             'deduction_id' => 'required|exists:deductions,id',
+            'is_custom' => 'sometimes|string',
+            'amount' => 'sometimes|integer',
+            'name' => 'sometimes|string'
         ]);
 
         if ($validate->fails()) {
@@ -215,6 +239,13 @@ class PayrollController extends Controller
             ], 404);
         }
 
+        if (PayrollDetail::where('payroll_id', $request->payroll_id)->where('deduction_id', $request->deduction_id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data deduction sudah ada.'
+            ], 422);
+        }
+
         $employee_id = $payroll->employee_id;
 
         $totalLate = 0;
@@ -225,14 +256,25 @@ class PayrollController extends Controller
 
         $totalLate = $totalLate > 0 ? $totalLate : $deduction->amount;
         
-        $payrollDetail = PayrollDetail::create([
-            'payroll_id' => $request->payroll_id,
-            'deduction_id' => $request->deduction_id,
-            'amount' => $totalLate,
-            'name' => $deduction->deduction_name,
-            'type' => 'deduction',
-            'is_custom' => false
-        ]);
+        if ($request->is_custom) {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'deduction_id' => $request->deduction_id,
+                'amount' => $request->amount,
+                'name' => $request->name,
+                'type' => 'deduction',
+                'is_custom' => true
+            ]);
+        } else {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'deduction_id' => $request->deduction_id,
+                'amount' => $totalLate,
+                'name' => $deduction->deduction_name,
+                'type' => 'deduction',
+                'is_custom' => false
+            ]);
+        }
 
         $payroll->increment('total_deduction', $totalLate);
         $payroll->decrement('total_salary', $totalLate);
