@@ -29,6 +29,7 @@ Route::apiResource('positions', PositionController::class);
 Route::apiResource('departments', DepartmentController::class);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('employees', EmployeeController::class);
+Route::put('employees/{id}/status', [EmployeeController::class, 'UpdateStatus']);
 Route::apiResource('shifts', ShiftController::class);
 Route::apiResource('shift-schedules', ShiftScheduleController::class);
 Route::apiResource('shift-schedule-details', ShiftScheduleDetailController::class);

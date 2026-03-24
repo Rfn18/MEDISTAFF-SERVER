@@ -21,6 +21,7 @@ class UserManageController extends Controller
             ], 404);
         }
 
+        $users->load('role');
         return new ApiResources(true, 'List data users.', $users);
     }
 

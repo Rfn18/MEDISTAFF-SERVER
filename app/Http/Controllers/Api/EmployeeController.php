@@ -117,6 +117,31 @@ class EmployeeController extends Controller
         return new ApiResources(true, 'Data employee berhasil diubah.', $employee);
     }
 
+    public function UpdateStatus(Request $request, $id)
+    {
+        $validate = Validator::make($request->all(), [
+            'employee_status' => 'required|string|in:active,inactive,terminated,resigned,on_leave'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 422);
+        }
+
+        $employee = Employee::find($id);
+        if (!$employee) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data employee tidak ditemukan.'
+            ], 404);
+        }
+
+        $employee->update($request->only(['employee_status']));
+        return new ApiResources(true, 'Status employee berhasil diubah.', $employee);
+    }
+
     public function Show($id)
     {
         $employee = Employee::with(['position', 'department'])->where('id', $id)->first();
