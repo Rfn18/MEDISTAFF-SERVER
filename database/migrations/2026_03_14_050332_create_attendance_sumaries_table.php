@@ -23,6 +23,7 @@ return new class extends Migration
             $table->integer('total_sick');
             $table->integer('total_absent');
             $table->integer('total_late');
+            $table->integer('total_off');
             $table->timestamps();
         });
     }

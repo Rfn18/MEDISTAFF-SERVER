@@ -16,6 +16,10 @@ return new class extends Migration
             $table->date('schedule_date');
             $table->string('created_by');
             $table->string('updated_by');
+            $table->foreignId('departement_id')
+                    ->constrained('departments')
+                    ->cascadeOnUpdate()
+                    ->restrictOnDelete();
             $table->timestamps();
         });
     }

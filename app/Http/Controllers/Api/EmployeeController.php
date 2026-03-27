@@ -58,7 +58,7 @@ class EmployeeController extends Controller
             $data['photo'] = $path;  
         }   
 
-        $data['status'] = 'active';
+        $data['employee_status'] = 'active';
         $employee = Employee::create($data);
 
         return new ApiResources(true, 'Data employee berhasil ditambahkan.', $employee);

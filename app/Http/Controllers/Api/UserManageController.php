@@ -50,6 +50,7 @@ class UserManageController extends Controller
             'is_active' => $request->has('is_active') ? (bool) $request->is_active : true,
             'role_id' => $request->role_id,
             'employee_id' => $request->employee_id,
+            'device_id' => null,
         ]);
 
         return new ApiResources(true, 'Data user berhasil ditambahkan.', $user);
@@ -86,19 +87,28 @@ class UserManageController extends Controller
             ], 400);
         }
 
-        $data = $request->only([
-            'name',
-            'email',
-            'is_active',
-            'role_id',
-            'employee_id',
-        ]);
+        $user = User::where('id', $id)->first();
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data user tidak ditemukan.'
+            ], 404);
+        }
+
+        $data = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'is_active' => $request->is_active,
+            'role_id' => $request->role_id,
+            'employee_id' => $request->employee_id,
+            'device_id' => $user->device_id,
+        ];
 
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
 
-        $user = User::where('id', $id)->update($data);
+        $user->update($data);
 
         return new ApiResources(true, 'Data user berhasil diubah.', $user);
     }

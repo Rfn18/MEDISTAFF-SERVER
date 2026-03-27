@@ -43,11 +43,11 @@ class AttendanceController extends Controller
 
         $gracePeriodMinutes = 15;
 
-        $now      = Carbon::now();
+        $now = Carbon::now();
         $now->hour(23);
         $now->minute(00);
         $now->second(00);
-        $today    = $now->toDateString();
+        $today = $now->toDateString();
 
         $employee = auth()->user()->employee;
 
@@ -75,6 +75,13 @@ class AttendanceController extends Controller
                 $query->where('schedule_date', $today);
             })
             ->first();
+
+        if ($scheduleDetail->is_off) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda terjadwal libur hari ini.'
+            ], 400);
+        }
 
         if (!$scheduleDetail) {
             return response()->json([
@@ -228,11 +235,6 @@ class AttendanceController extends Controller
             ], 404);
         }
 
-        $attendance->update([
-            'longitude' => $longitude,
-            'latitude'  => $latitude
-        ]);
-
         $endTime = Carbon::parse($scheduleDetail->shift->end_time);
         
         if ($now->lessThan($endTime)) {
@@ -241,6 +243,11 @@ class AttendanceController extends Controller
                 'message' => 'Belum waktunya check-out.'
             ], 400);
         }
+
+        $attendance->update([
+            'longitude' => $longitude,
+            'latitude'  => $latitude
+        ]);
 
         $attendance->update([
             'check_out_time' => $now->toTimeString()
@@ -330,8 +337,10 @@ class AttendanceController extends Controller
                 $totalLeaveDays += $leaveDaysInMonth;
             }
         }
-        $totalAbsent = max(0, $totalScheduledDays - $totalPresent - $totalLeaveDays - $totalSickDays);
-
+        
+        $totalOffDays = $shiftDetails->where('is_off', true)->count();
+        $totalAbsent = max(0, $totalScheduledDays - $totalPresent - $totalLeaveDays - $totalSickDays - $totalOffDays);
+        
         $summary = AttendanceSumary::updateOrCreate([
             'employee_id' => $employeeId,
             'month' => $month,
@@ -341,7 +350,8 @@ class AttendanceController extends Controller
             'total_late' => $totalLate,
             'total_absent' => $totalAbsent,
             'total_leave' => $totalLeaveDays,
-            'total_sick' => $totalSickDays
+            'total_sick' => $totalSickDays,
+            'total_off' => $totalOffDays
         ]);
         
         return new ApiResources(true, 'Berhasiil Input Rankuman Absen.', $summary);

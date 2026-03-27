@@ -16,19 +16,14 @@ class ShiftSchedulesDetail extends Model
     protected $table = 'shift_schedules_details';
     protected $fillable = [
         'employee_id',
-        'departement_id',
         'shift_id',
         'shift_schedule_id',
+        'is_off',
     ];
 
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id', 'id');
-    }
-
-    public function departement(): BelongsTo
-    {
-        return $this->belongsTo(Department::class, 'departement_id', 'id');
     }
 
     public function shift(): BelongsTo

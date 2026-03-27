@@ -13,18 +13,15 @@ return new class extends Migration
     {
         Schema::create('shift_schedules_details', function (Blueprint $table) {
             $table->id();
+            $table->boolean('is_off')->default(false);
             $table->foreignId('employee_id')
                     ->constrained('employees')
                     ->cascadeOnUpdate()
                     ->restrictOnDelete();
-            $table->foreignId('departement_id')
-                    ->constrained('departments')
-                    ->cascadeOnUpdate()
-                    ->restrictOnDelete();
             $table->foreignId('shift_id')
+                    ->nullable()
                     ->constrained('shifts')
-                    ->cascadeOnUpdate()
-                    ->restrictOnDelete();
+                    ->nullOnDelete();
             $table->foreignId('shift_schedule_id')
                     ->constrained('shift_schedules')
                     ->cascadeOnUpdate()

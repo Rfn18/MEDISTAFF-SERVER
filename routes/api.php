@@ -32,6 +32,7 @@ Route::apiResource('employees', EmployeeController::class);
 Route::put('employees/{id}/status', [EmployeeController::class, 'UpdateStatus']);
 Route::apiResource('shifts', ShiftController::class);
 Route::apiResource('shift-schedules', ShiftScheduleController::class);
+Route::get('shift-schedules/{id}/details', [ShiftScheduleController::class, 'showDataByDepartment']);
 Route::apiResource('shift-schedule-details', ShiftScheduleDetailController::class);
 Route::apiResource('leave-types', LeaveTypeController::class);
 Route::apiResource('users', UserManageController::class);
@@ -52,5 +53,5 @@ Route::post('summarise', [AttendanceController::class, 'summarise'])->middleware
 
 // Leave Request Routes
 Route::apiResource('leave-requests', LeaveRequestController::class)->middleware('auth:sanctum');
-Route::put('leave-requests/approve/{id}', [LeaveRequestController::class, 'approve'])->middleware('auth:sanctum');
-Route::put('leave-requests/reject/{id}', [LeaveRequestController::class, 'reject'])->middleware('auth:sanctum');
+Route::put('leave-requests/{id}/approve', [LeaveRequestController::class, 'approve'])->middleware('auth:sanctum');
+Route::put('leave-requests/{id}/reject', [LeaveRequestController::class, 'reject'])->middleware('auth:sanctum');

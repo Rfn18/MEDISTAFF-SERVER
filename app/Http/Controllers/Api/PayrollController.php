@@ -64,8 +64,8 @@ class PayrollController extends Controller
         DB::beginTransaction();
 
         try {
-            $positionId = Employee::where('id', $request->employee_id)->first()->position_id;
-            $position = Position::where('id', $positionId)->first();
+            $employee = Employee::with('position')->find($request->employee_id);
+            $position = $employee->position;
 
             $baseSalary = $request->base_salary ? $request->base_salary : $position->base_salary; 
             $overtimePay = $this->calculateOvertimePay($request->employee_id, $request->month, $request->year, $baseSalary);
@@ -108,19 +108,23 @@ class PayrollController extends Controller
 
         $totalOvertimeHours = 0;
 
+        $scheduleDates = $schedules->map(fn($s) => $s->shiftSchedule->schedule_date)->toArray();
+        $attendances = Attendance::where('employee_id', $employee_id)
+            ->whereIn('attendance_date', $scheduleDates)
+            ->whereNotNull('check_out_time')
+            ->get()
+            ->keyBy('attendance_date');
+        
         foreach ($schedules as $schedule) {
-            $shiftEndTime    = $schedule->shift->end_time;
-            $scheduleDate    = $schedule->shiftSchedule->schedule_date;
+            if ($schedule->is_off) continue;
 
-            $attendance = Attendance::where('employee_id', $employee_id)
-                ->where('attendance_date', $scheduleDate)
-                ->whereNotNull('check_out_time')
-                ->first();
+            $scheduleDate = $schedule->shiftSchedule->schedule_date;
+            $attendance   = $attendances->get($scheduleDate); 
             
             if (!$attendance) continue;
 
-            $checkOut  = Carbon::parse($scheduleDate . ' ' . $attendance->check_out_time);
-            $shiftEnd  = Carbon::parse($scheduleDate . ' ' . $shiftEndTime);
+            $checkOut = Carbon::parse($scheduleDate . ' ' . $attendance->check_out_time);
+            $shiftEnd = Carbon::parse($scheduleDate . ' ' . $schedule->shift->end_time);
  
             if ($checkOut->gt($shiftEnd)) {
                 $overtimeMinutes     = $checkOut->diffInMinutes($shiftEnd);
@@ -135,7 +139,6 @@ class PayrollController extends Controller
         $overtimePay = $hourlyRate * self::OVERTIME_MULTIPLIER * $totalOvertimeHours;
 
         return round($overtimePay, 2);
-
     }
 
     public function createAllowance(Request $request) {
@@ -199,8 +202,9 @@ class PayrollController extends Controller
             ]);
         }
 
-        $payroll->increment('total_allowance', $allowace->amount);
-        $payroll->increment('total_salary', $allowace->amount); 
+        $finalAmount = $request->is_custom ? $request->amount : $allowace->amount;
+        $payroll->increment('total_allowance', $finalAmount);
+        $payroll->increment('total_salary', $finalAmount);
 
         return new ApiResources(true, 'Data allowance berhasil ditambahkan.', $payrollDetail);
     }
@@ -293,21 +297,27 @@ class PayrollController extends Controller
         
         $totalLateHours = 0;
 
+        $scheduleDates = $schedules->map(fn($s) => $s->shiftSchedule->schedule_date)->toArray();
+        $attendances = Attendance::where('employee_id', $employee_id)
+            ->whereIn('attendance_date', $scheduleDates)
+            ->whereNotNull('check_in_time')
+            ->get()
+            ->keyBy('attendance_date');
+
         foreach ($schedules as $schedule) {
+            if ($schedule->is_off) continue;
+            
             $shiftStartTime    = $schedule->shift->start_time;
             $scheduleDate    = $schedule->shiftSchedule->schedule_date;
 
-            $attendance = Attendance::where('employee_id', $employee_id)
-                ->where('attendance_date', $scheduleDate)
-                ->whereNotNull('check_in_time')
-                ->first();
+            $attendance = $attendances->get($scheduleDate);
             
             if (!$attendance) continue;
 
-                $checkIn  = Carbon::parse($scheduleDate . ' ' . $attendance->check_in_time);
-                $shiftStart = Carbon::parse($scheduleDate . ' ' . $shiftStartTime);
- 
-                $shiftStartWithGrace = $shiftStart->copy()->addMinutes(15); 
+            $checkIn  = Carbon::parse($scheduleDate . ' ' . $attendance->check_in_time);
+            $shiftStart = Carbon::parse($scheduleDate . ' ' . $shiftStartTime);
+            $shiftStartWithGrace = $shiftStart->copy()->addMinutes(15); 
+
             if ($checkIn->gt($shiftStart)) {
                 $lateMinutes = $checkIn->diffInMinutes($shiftStartWithGrace);
                 $totalLateHours += $lateMinutes / 60;

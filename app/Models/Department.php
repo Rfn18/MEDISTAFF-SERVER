@@ -19,4 +19,9 @@ class Department extends Model
     {
         return $this->hasMany(Employee::class, 'department_id', 'id');
     }
+
+    public function shiftSchedules(): HasMany
+    {
+        return $this->hasMany(ShiftSchedule::class, 'department_id', 'id');
+    }
 }
