@@ -16,15 +16,16 @@ use Illuminate\Support\Facades\Validator;
 class AttendanceController extends Controller
 {
     public function index() {
-        $attandance = Attendance::paginate(10);
-        if ($attandance->isEmpty()) {
+        $attendance = Attendance::paginate(10);
+        if ($attendance->isEmpty()) {
             return response()->json([
                 'status' => false,
                 'message' => 'Data masih kosong.'
             ], 404);
-        }
+        }   
 
-        return new ApiResources(true, 'List data attendance.', $attandance);
+        $attendance->load('employee');
+        return new ApiResources(true, 'List data attendance.', $attendance);
     }
 
     public function checkIn(Request $request) {
@@ -32,6 +33,7 @@ class AttendanceController extends Controller
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'device_id' => 'required|string',
+            'qr_payload' => 'required|string',
         ]);
 
         if ($validator->fails()) {
@@ -41,12 +43,22 @@ class AttendanceController extends Controller
             ], 400);
         };
 
+        $currentPayload = $this->generateCurrentQrPayload();
+
+        $timeSlotPast = floor((time() - 30) / 30);
+        $setting = AttendanceSetting::first();
+        $pastPayload = hash_hmac('sha256', $setting->id . $timeSlotPast, "FaterinoGanteng");
+
+        if ($request->qr_payload !== $currentPayload && $request->qr_payload !== $pastPayload) {
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code tidak valid atau sudah kedaluwarsa.'
+            ], 403);
+        }
+
         $gracePeriodMinutes = 15;
 
         $now = Carbon::now();
-        $now->hour(23);
-        $now->minute(00);
-        $now->second(00);
         $today = $now->toDateString();
 
         $employee = auth()->user()->employee;
@@ -71,18 +83,9 @@ class AttendanceController extends Controller
 
         $scheduleDetail = ShiftSchedulesDetail::with('shift')
             ->where('employee_id', $employee->id)
-            ->whereHas('shiftSchedule', function ($query) use ($today) {
-                $query->where('schedule_date', $today);
-            })
+            ->where('schedule_date', $today)
             ->first();
-
-        if ($scheduleDetail->is_off) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda terjadwal libur hari ini.'
-            ], 400);
-        }
-
+            
         if (!$scheduleDetail) {
             return response()->json([
                 'success' => false,
@@ -90,10 +93,24 @@ class AttendanceController extends Controller
             ], 404);
         }
 
+         if ($scheduleDetail->is_off) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda terjadwal libur hari ini.'
+            ], 400);
+         }
+
         $longitude = $request->longitude;
         $latitude  = $request->latitude;
 
         $attandanceSetting = AttendanceSetting::first();
+        
+        if (!$attandanceSetting) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lokasi kantor belum di tentukan.'
+            ], 404);
+        }
 
         $nearbyLocations = AttendanceSetting::query()
         ->whereRaw('ST_Distance_Sphere(point(longitude, latitude), point(?, ?)) <= ?', [
@@ -373,6 +390,22 @@ class AttendanceController extends Controller
     
         $diff = $effectiveStart->diff($effectiveEnd);
         return $diff->days + 1;
+    }
+    
+    private function generateCurrentQrCode() {
+        $office = AttendanceSetting::first();
+        $secret_key = "FasterinoGanteng";
+
+        $time_slot = floor(time() / 30);
+
+        return hash_hmac('sha256', $office->id . $time_slot, $secret_key);
+    }
+
+    public function getDinamicQr() {
+        return response()->json([
+            'success' => true,
+            'qr_payload' => $this->generateCurrentQrCode()
+        ]);
     }
 }
 

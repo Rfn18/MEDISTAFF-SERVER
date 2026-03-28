@@ -26,7 +26,7 @@ class AttendanceSettingController extends Controller
 
     public function store(Request $request) {
         $validate = Validator::make($request->all(), [
-            'office_name' => 'required|string',
+            'rs_name' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'radius_meters' => 'required|integer',
@@ -46,7 +46,7 @@ class AttendanceSettingController extends Controller
 
     public function update(Request $request, $id) {
         $validate = Validator::make($request->all(), [
-            'office_name' => 'required|string',
+            'rs_name' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'radius_meters' => 'required|integer',

@@ -218,4 +218,17 @@ class LeaveRequestController extends Controller
         $leaveRequest->delete();
         return new ApiResources(true, 'Data leave request berhasil dihapus.', $leaveRequest);
     }
+
+    public function getDataByEmployee() {
+        $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->where('employee_id', auth()->id())->paginate(10);
+        if ($leaveRequest->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'List data leave request.', $leaveRequest);
+    }
+
 }

@@ -107,6 +107,7 @@ class LeaveTypeController extends Controller
 
         return new ApiResources(true, 'Data leave type berhasil diubah.', $leaveType);
     }
+
     public function destroy( $id)
     {
         $leaveType = LeaveType::find($id);

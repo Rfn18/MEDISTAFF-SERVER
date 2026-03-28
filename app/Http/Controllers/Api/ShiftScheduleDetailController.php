@@ -59,7 +59,7 @@ class ShiftScheduleDetailController extends Controller
             DB::rollBack();
 
             return response()->json([
-                'status'  => false,
+                'status'  => false, 
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -167,6 +167,7 @@ class ShiftScheduleDetailController extends Controller
             $isOff = in_array($day, $offIndexes);
             if ($isOff) {
                 $result[] = [
+                    'schedule_date'     => Carbon::create($year, $month, $day)->format('Y-m-d'),
                     'employee_id'       => $employee->id,
                     'shift_id'          => null,
                     'shift_schedule_id' => $shift_schedule_id,
@@ -185,6 +186,7 @@ class ShiftScheduleDetailController extends Controller
             $shift = $availableShifts->random();
 
             $result[] = [
+                'schedule_date'     => Carbon::create($year, $month, $day)->format('Y-m-d'),
                 'employee_id'       => $employee->id,
                 'departement_id'    => $employee->department_id,
                 'shift_id'          => $shift->id,

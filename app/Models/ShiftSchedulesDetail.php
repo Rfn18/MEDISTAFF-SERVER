@@ -18,6 +18,7 @@ class ShiftSchedulesDetail extends Model
         'employee_id',
         'shift_id',
         'shift_schedule_id',
+        'schedule_date',
         'is_off',
     ];
 

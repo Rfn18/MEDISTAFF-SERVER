@@ -16,6 +16,7 @@ class UserAuthController extends Controller
         $validate = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string|min:8',
+            'device_id' => 'required|string',
         ]);
 
         if ($validate->fails()) {
@@ -35,6 +36,7 @@ class UserAuthController extends Controller
         
         $user->update([
             'last_login_at' => Carbon::now(),
+            'device_id' => $request->device_id,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;

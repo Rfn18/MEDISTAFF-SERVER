@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('shift_schedules_details', function (Blueprint $table) {
             $table->id();
             $table->boolean('is_off')->default(false);
+            $table->date('schedule_date');
             $table->foreignId('employee_id')
                     ->constrained('employees')
                     ->cascadeOnUpdate()
@@ -26,6 +27,7 @@ return new class extends Migration
                     ->constrained('shift_schedules')
                     ->cascadeOnUpdate()
                     ->restrictOnDelete();
+                
             $table->timestamps();
         });
     }

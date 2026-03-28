@@ -8,5 +8,5 @@ class AttendanceSetting extends Model
 {
     protected $table = 'attendance_settings';
 
-    protected $fillable = ['office_name', 'latitude', 'longitude', 'radius_meters'];
+    protected $fillable = ['rs_name', 'latitude', 'longitude', 'radius_meters'];
 }

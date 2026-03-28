@@ -50,8 +50,10 @@ Route::get('attendances', [AttendanceController::class, 'index'])->middleware('a
 Route::post('check-in', [AttendanceController::class, 'checkIn'])->middleware('auth:sanctum');
 Route::post('check-out', [AttendanceController::class, 'checkOut'])->middleware('auth:sanctum');
 Route::post('summarise', [AttendanceController::class, 'summarise'])->middleware('auth:sanctum');
+Route::get('dinamic-qr', [AttendanceController::class, 'getDinamicQr']);
 
 // Leave Request Routes
 Route::apiResource('leave-requests', LeaveRequestController::class)->middleware('auth:sanctum');
 Route::put('leave-requests/{id}/approve', [LeaveRequestController::class, 'approve'])->middleware('auth:sanctum');
 Route::put('leave-requests/{id}/reject', [LeaveRequestController::class, 'reject'])->middleware('auth:sanctum');
+Route::get('leave-request/by', [LeaveRequestController::class,'getDataByEmployee'])->middleware('auth:sanctum');
