@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\ApiResources;
 use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -34,7 +35,7 @@ class UserAuthController extends Controller
         }
         
         $user->update([
-            'device_id' => $request->device_id,
+            'last_login_at' => Carbon::now(),
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -49,7 +50,7 @@ class UserAuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'last_login_at' => 'nullable|dateTime',
-            'employee_id' => 'required|integer|exists:employees,id',
+            'nip' => 'required|string|exists:employees,nip',
             'device_id' => 'required|string',
             'password' => 'required|string|min:8',
         ]);
@@ -61,11 +62,13 @@ class UserAuthController extends Controller
             ], 400);
         }
 
+        $employeeId = Employee::where('nip', $request->nip)->first()->id;
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'employee_id' => $request->employee_id,
+            'employee_id' => $employeeId,
             'device_id' => $request->device_id,
             'role_id' => 3,
             'is_active' => true,
