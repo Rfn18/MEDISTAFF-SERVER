@@ -341,4 +341,16 @@ class PayrollController extends Controller
 
         return new ApiResources(true, 'Detail data payroll.', $payroll);
     }
+
+    public function showByPeriod(Request $request) {
+        $payroll = Payroll::where('month', $request->month)->where('year', $request->year)->paginate(10);
+        if ($payroll->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data payroll tidak ditemukan.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'Detail data payroll.', $payroll);
+    }
 }

@@ -69,7 +69,7 @@ class LeaveRequestController extends Controller
         }
 
         $leaveRequest = LeaveRequest::create([
-            'employee_id'   => auth()->id(),
+            'employee_id'   => auth()->user()->employee_id,
             'leave_type_id' => $request->leave_type_id,
             'start_date'    => $request->start_date,
             'end_date'      => $request->end_date,
@@ -153,10 +153,15 @@ class LeaveRequestController extends Controller
             ], 400);
         }
 
-        $leaveRequestValue = LeaveRequest::where('employee_id', auth()->id())->where('start_date', $request->start_date)->where('end_date', $request->end_date)->first();
-
+        $leaveRequestValue = LeaveRequest::where('employee_id', auth()->user()->employee_id)->where('start_date', $request->start_date)->where('end_date', $request->end_date)->first();
+        if (!$leaveRequestValue) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data leave request tidak ditemukan.'
+            ], 404);
+        }
         $leaveRequest->update([
-            'employee_id'   => auth()->id(),
+            'employee_id'   => auth()->user()->employee_id,
             'leave_type_id' => $request->leave_type_id,
             'start_date'    => $request->start_date,
             'end_date'      => $request->end_date,
@@ -220,7 +225,7 @@ class LeaveRequestController extends Controller
     }
 
     public function getDataByEmployee() {
-        $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->where('employee_id', auth()->id())->paginate(10);
+        $leaveRequest = LeaveRequest::with(['employee', 'leaveType'])->where('employee_id', auth()->user()->employee_id)->paginate(10);
         if ($leaveRequest->isEmpty()) {
             return response()->json([
                 'status' => false,
