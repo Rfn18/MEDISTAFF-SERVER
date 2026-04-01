@@ -52,6 +52,7 @@ Route::post('check-in', [AttendanceController::class, 'checkIn'])->middleware('a
 Route::post('check-out', [AttendanceController::class, 'checkOut'])->middleware('auth:sanctum');
 Route::post('summarise', [AttendanceController::class, 'summarise'])->middleware('auth:sanctum');
 Route::get('dinamic-qr', [AttendanceController::class, 'getDinamicQr']);
+Route::post('attendance-by-month', [AttendanceController::class, 'getAttendanceByMonthAndYear'])->middleware('auth:sanctum');
 
 // Leave Request Routes
 Route::apiResource('leave-requests', LeaveRequestController::class)->middleware('auth:sanctum');

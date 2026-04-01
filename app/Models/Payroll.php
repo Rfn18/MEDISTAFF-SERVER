@@ -30,6 +30,17 @@ class Payroll extends Model
         return $this->hasMany(PayrollDetail::class, 'payroll_id', 'id');
     }
 
+
+    public function allowanceDetails()
+    {
+        return $this->hasMany(PayrollDetail::class, 'payroll_id')->where('type', 'allowance');
+    }
+
+    public function deductionDetails()
+{
+    return $this->hasMany(PayrollDetail::class, 'payroll_id')->where('type', 'deduction');
+}
+
     public function paySlips(): HasMany
     {
         return $this->hasMany(PaySlip::class, 'payroll_id', 'id');

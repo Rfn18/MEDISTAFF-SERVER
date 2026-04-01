@@ -22,7 +22,7 @@ class PayrollController extends Controller
     const OVERTIME_MULTIPLIER = 1.5;
 
     public function index() {
-        $payroll = Payroll::with(['employee', 'payrollDetails', 'paySlips'])->paginate(10);
+        $payroll = Payroll::with(['employee', 'payrollDetails', 'paySlips'  ])->paginate(10);
         if ($payroll->isEmpty()) {
             return response()->json([
                 'status' => false,
@@ -152,13 +152,15 @@ class PayrollController extends Controller
 
         DB::commit();
 
-        return new ApiResources(true, 'Data payroll berhasil ditambahkan.', $payroll->load('details'));
+        return new ApiResources(true, 'Data payroll berhasil ditambahkan.', $payroll->load('payrollDetails'));
 
     } catch (\Exception $e) {
         DB::rollBack();
         return response()->json([
             'success' => false,
             'message' => $e->getMessage(),
+            'file'    => $e->getFile(),   
+            'line'    => $e->getLine(),   
             'data'    => null
         ], 500);
     }

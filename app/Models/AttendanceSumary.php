@@ -16,6 +16,7 @@ class AttendanceSumary extends Model
         'total_sick',
         'total_absent',
         'total_late',
+        'total_off'
     ];      
 
     public function employee(): BelongsTo
