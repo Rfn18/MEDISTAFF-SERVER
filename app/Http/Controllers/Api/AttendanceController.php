@@ -174,6 +174,8 @@ use App\Models\Attendance;
                 'latitude' => 'required|numeric',
                 'longitude' => 'required|numeric',
                 'device_id' => 'required|string',
+                'qr_payload' => 'required|string',
+                'user_id'=> 'required|exists:users,id',
             ]);
 
             if ($validator->fails()) {
@@ -183,12 +185,25 @@ use App\Models\Attendance;
                 ], 400);
             };
 
+            
+            $currentPayload = $this->generateCurrentQrCode();
+
+            $timeSlotPast = floor((time() - 30) / 30);
+            $setting = AttendanceSetting::first();
+            $pastPayload = hash_hmac('sha256', $setting->id . $timeSlotPast, "FasterinoGanteng");
+
+            if ($request->qr_payload !== $currentPayload && $request->qr_payload !== $pastPayload) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'QR Code tidak valid atau sudah kedaluwarsa.'
+                ], 403);
+            }
+
             $now = Carbon::now();
-
             $today    = $now->toDateString();
-
-            $employee = auth()->user()->employee;
-
+            $employee_id = User::where('id', $request->user_id)->first()->employee_id;
+            $employee = Employee::where('id', $employee_id)->first();
+            
             if (!$employee) {
                 return response()->json([
                     'success' => false,
@@ -228,7 +243,7 @@ use App\Models\Attendance;
                 ], 400);
             }
 
-            $main_device_id = auth()->user()->device_id;
+            $main_device_id = User::where('id', $request->user_id)->first()->device_id;
 
             if ($main_device_id !== $request->device_id) {
                 return response()->json([

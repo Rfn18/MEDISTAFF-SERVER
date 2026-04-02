@@ -42,8 +42,9 @@ Route::apiResource('deductions', DeductionController::class);
 Route::apiResource('payrolls', PayrollController::class);
 Route::post('payroll-by-period', [PayrollController::class, 'showByPeriod']);
 Route::post('payroll-generates', [PayrollController::class, 'payroll']);
-Route::post('payroll-allowances', [PayrollController::class, 'createAllowance']);
 Route::post('payroll-deductions', [PayrollController::class, 'createDeduction']);
+Route::post('payroll-allowances', [PayrollController::class, 'createAllowance']);
+
 
 // Attandance Routes
 Route::apiResource('attendance-settings', AttendanceSettingController::class);

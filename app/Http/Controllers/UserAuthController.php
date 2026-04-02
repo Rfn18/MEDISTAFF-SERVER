@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Validator;
 
 class UserAuthController extends Controller
 {
-
     public function login(Request $request) {
         $validate = Validator::make($request->all(), [
             'email' => 'required|email',

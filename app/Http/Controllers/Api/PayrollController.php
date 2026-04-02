@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\Payroll;
 use App\Models\PayrollDetail;
 use App\Models\Position;
+use App\Models\ShiftSchedule;
 use App\Models\ShiftSchedulesDetail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -33,172 +34,249 @@ class PayrollController extends Controller
         return new ApiResources(true, 'List data payroll.', $payroll);
     }
 
-  public function payroll(Request $request) {
-    $validate = Validator::make($request->all(), [
-        'employee_id'              => 'required|exists:employees,id',
-        'month'                    => 'required|integer|min:1|max:12',
-        'year'                     => 'required|integer|min:2000|max:2100',
-        'base_salary'              => 'sometimes|integer',
+    public function payroll(Request $request) {
 
-        'allowances'               => 'sometimes|array',
-        'allowances.*.allowance_id'=> 'required|exists:allowances,id',
-        'allowances.*.is_custom'   => 'sometimes|boolean',
-        'allowances.*.amount'      => 'required_if:allowances.*.is_custom,true|integer',
-        'allowances.*.name'        => 'required_if:allowances.*.is_custom,true|string',
-
-        'deductions'               => 'sometimes|array',
-        'deductions.*.deduction_id'=> 'required|exists:deductions,id',
-        'deductions.*.is_custom'   => 'sometimes|boolean',
-        'deductions.*.amount'      => 'required_if:deductions.*.is_custom,true|integer',
-        'deductions.*.name'        => 'required_if:deductions.*.is_custom,true|string',
-    ]);
-
-    if ($validate->fails()) {
-        return response()->json([
-            'status'  => false,
-            'message' => $validate->errors()
-        ], 400);
-    }
-
-    $employee_id = $request->employee_id;
-    $month       = $request->month;
-    $year        = $request->year;
-
-    if (Payroll::where('employee_id', $employee_id)
-                ->where('year', $year)
-                ->where('month', $month)
-                ->exists()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Payroll pada bulan tersebut sudah ada.',
-            'data'    => null
-        ], 422);
-    }
-
-    DB::beginTransaction();
-
-    try {
-        $employee   = Employee::with('position')->find($employee_id);
-        $baseSalary = $request->base_salary ?? $employee->position->base_salary;
-        $overtimePay = $this->calculateOvertimePay($employee_id, $month, $year, $baseSalary);
-
-        $payroll = Payroll::create([
-            'employee_id'     => $employee_id,
-            'month'           => $month,
-            'year'            => $year,
-            'base_salary'     => $baseSalary,
-            'total_allowance' => 0,
-            'total_deduction' => 0,
-            'overtime_pay'    => $overtimePay,
-            'total_salary'    => $baseSalary + $overtimePay,
+        $validate = Validator::make($request->all(), [
+            'employee_id' => 'required|exists:employees,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+            'base_salary' => 'sometimes|integer',
         ]);
 
-        $totalAllowance = 0;
-        $totalDeduction = 0;
-        $details        = [];
+        $employee_id = $request->employee_id;
+        $month = $request->month;
+        $year = $request->year;
 
-        foreach ($request->allowances ?? [] as $item) {
-            $allowance = Allowance::findOrFail($item['allowance_id']);
-
-            $isCustom = $item['is_custom'] ?? false;
-            $amount   = $isCustom ? $item['amount'] : $allowance->amount;
-            $name     = $isCustom ? $item['name']   : $allowance->allowance_name;
-
-            $details[] = [
-                'payroll_id'   => $payroll->id,
-                'allowance_id' => $allowance->id,
-                'deduction_id' => null,
-                'amount'       => $amount,
-                'name'         => $name,
-                'type'         => 'allowance',
-                'is_custom'    => $isCustom,
-            ];
-
-            $totalAllowance += $amount;
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 400);
+        }
+     
+        if (Payroll::where('employee_id', $employee_id)->where('year', $year)->where('month', $month)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payroll pada bulan tersebut sudah ada.',
+                'data' => null
+            ], 422);
         }
 
-        foreach ($request->deductions ?? [] as $item) {
-            $deduction = Deduction::findOrFail($item['deduction_id']);
+        DB::beginTransaction();
 
-            $isCustom = $item['is_custom'] ?? false;
+        try {
+            $employee = Employee::with('position')->find($request->employee_id);
+            $position = $employee->position;
 
-            if ($isCustom) {
-                $amount = $item['amount'];
-                $name   = $item['name'];
-            } else {
-                $amount = $deduction->deduction_name === 'late'
-                    ? ($this->calculateLatePay($employee_id, $month, $year, $deduction->amount) ?: $deduction->amount)
-                    : $deduction->amount;
-                $name = $deduction->deduction_name;
-            }
-            $details[] = [
-                'payroll_id'   => $payroll->id,
-                'allowance_id' => null,
-                'deduction_id' => $deduction->id,
-                'amount'       => $amount,
-                'name'         => $name,
-                'type'         => 'deduction',
-                'is_custom'    => $isCustom,
-            ];
+            $startDate = $this->getPayrollPeriod($request->month, $request->year)[0];
+            $endDate   = $this->getPayrollPeriod($request->month, $request->year)[1];
 
-            $totalDeduction += $amount;
+            $baseSalary = $request->base_salary ? $request->base_salary : $position->base_salary; 
+            $overtimePay = $this->calculateOvertimePay($request->employee_id, $startDate, $endDate, $baseSalary);
+            $absentPay = $this->calculateAbsentPay($request->employee_id, $startDate, $endDate, $baseSalary);
+            $total_salary = $baseSalary + $overtimePay - $absentPay;
+
+            $payroll = Payroll::create([
+                'employee_id' => $request->employee_id,
+                'month' => $request->month,
+                'year' => $request->year,
+                'base_salary' => $baseSalary,
+                'total_allowance' => 0,
+                'total_deduction' => 0,
+                'overtime_pay' => $overtimePay,
+                'total_salary' => round($total_salary, 2),
+            ]);
+
+            DB::commit();
+            return new ApiResources(true, 'Data payroll berhasil ditambahkan.', $payroll);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => null
+            ], 500);
         }
-        PayrollDetail::insert($details);
-        $payroll->update([
-            'total_allowance' => $totalAllowance,
-            'total_deduction' => $totalDeduction,
-            'total_salary'    => $baseSalary + $overtimePay + $totalAllowance - $totalDeduction,
+
+    }
+
+    public function createAllowance(Request $request) {
+        $validate = Validator::make($request->all(), [
+            'payroll_id' => 'required|exists:payrolls,id',
+            'allowance_id' => 'required|exists:allowances,id',
+            'name' => 'sometimes|string',
+            'is_custom' => 'sometimes|string',
+            'amount' => 'sometimes|integer'
         ]);
 
-        DB::commit();
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 422);
+        }
 
-        return new ApiResources(true, 'Data payroll berhasil ditambahkan.', $payroll->load('payrollDetails'));
+        $allowace = Allowance::where('id', $request->allowance_id)->first();
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-            'file'    => $e->getFile(),   
-            'line'    => $e->getLine(),   
-            'data'    => null
-        ], 500);
+        if (!$allowace) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data allowance tidak ditemukan.'
+            ], 404);
+        }
+
+        $payroll = Payroll::where('id', $request->payroll_id)->first();
+
+        if (!$payroll) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data payroll tidak ditemukan.'
+            ], 404);
+        }
+
+        if (PayrollDetail::where('payroll_id', $request->payroll_id)->where('allowance_id', $request->allowance_id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data allowance sudah ada.'
+            ], 422);
+        }
+
+        if ($request->is_custom) {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'allowance_id' => $request->allowance_id,
+                'amount' => $request->amount,
+                'name' => $request->name,
+                'type' => 'allowance',
+                'is_custom' => true
+            ]);
+        } else {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'allowance_id' => $request->allowance_id,
+                'amount' => $allowace->amount,
+                'name' => $allowace->allowance_name,
+                'type' => 'allowance',
+                'is_custom' => false
+            ]);
+        }
+
+        $finalAmount = $request->is_custom ? $request->amount : $allowace->amount;
+        $payroll->increment('total_allowance', $finalAmount);
+        $payroll->increment('total_salary', $finalAmount);
+
+        return new ApiResources(true, 'Data allowance berhasil ditambahkan.', $payrollDetail);
     }
-}
 
-    private function calculateOvertimePay(int $employee_id, int $month, int $year, float $base_salary):float {
-        $schedules = ShiftSchedulesDetail::with(['shift', 'shiftSchedule'])
-            ->where('employee_id', $employee_id)
-            ->whereHas('shiftSchedule', function ($q) use ($month, $year) {
-                $q->whereMonth('schedule_date', $month)
-                  ->whereYear('schedule_date', $year);
-            })
+    public function createDeduction(Request $request) {
+        $validate = Validator::make($request->all(), [
+            'payroll_id' => 'required|exists:payrolls,id',
+            'deduction_id' => 'required|exists:deductions,id',
+            'is_custom' => 'sometimes|string',
+            'amount' => 'sometimes|integer',
+            'name' => 'sometimes|string'
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 422);
+        }
+
+        $deduction = Deduction::where('id', $request->deduction_id)->first();
+
+        if (!$deduction) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data deduction tidak ditemukan.'
+            ], 404);
+        }
+
+        $payroll = Payroll::where('id', $request->payroll_id)->first();
+
+        if (!$payroll) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data payroll tidak ditemukan.'
+            ], 404);
+        }
+
+        if (PayrollDetail::where('payroll_id', $request->payroll_id)->where('deduction_id', $request->deduction_id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data deduction sudah ada.'
+            ], 422);
+        }
+
+        $employee_id = $payroll->employee_id;
+
+        $totalLate = 0;
+
+        
+        if ($deduction->deduction_name == 'late') {
+            $startDate = $this->getPayrollPeriod($request->month, $request->year)[0];
+            $endDate   = $this->getPayrollPeriod($request->month, $request->year)[1];
+            $totalLate = $this->calculateLatePay($employee_id, $startDate, $endDate, $deduction->amount);
+        }
+
+        $totalLate = $totalLate > 0 ? $totalLate : $deduction->amount;
+        
+        if ($request->is_custom) {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'deduction_id' => $request->deduction_id,
+                'amount' => $request->amount,
+                'name' => $request->name,
+                'type' => 'deduction',
+                'is_custom' => true
+            ]);
+        } else {
+            $payrollDetail = PayrollDetail::create([
+                'payroll_id' => $request->payroll_id,
+                'deduction_id' => $request->deduction_id,
+                'amount' => $totalLate,
+                'name' => $deduction->deduction_name,
+                'type' => 'deduction',
+                'is_custom' => false
+            ]);
+        }
+
+        $payroll->increment('total_deduction', $totalLate);
+        $payroll->decrement('total_salary', $totalLate);
+
+        return new ApiResources(true, 'Data deduction berhasil ditambahkan.', $payrollDetail);
+    }
+
+    private function calculateOvertimePay(int $employee_id, $startDate, $endDate, float $base_salary) {
+      $schedules = ShiftSchedulesDetail::where('employee_id', $employee_id)
+            ->whereBetween('schedule_date', [$startDate, $endDate])
             ->get();
+
+        if ($schedules->isEmpty()) return 0;
             
-        if ($schedules->isEmpty()) return 0.0; 
+        $scheduleDates = $schedules->pluck('schedule_date')->toArray();
 
-        $totalOvertimeHours = 0;
-
-        $scheduleDates = $schedules->map(fn($s) => $s->shiftSchedule->schedule_date)->toArray();
         $attendances = Attendance::where('employee_id', $employee_id)
             ->whereIn('attendance_date', $scheduleDates)
-            ->whereNotNull('check_out_time')
             ->get()
             ->keyBy('attendance_date');
+        
+        $totalOvertimeHours = 0;
         
         foreach ($schedules as $schedule) {
             if ($schedule->is_off) continue;
 
-            $scheduleDate = $schedule->shiftSchedule->schedule_date;
-            $attendance   = $attendances->get($scheduleDate); 
-            
+            $date = Carbon::parse($schedule->schedule_date)->toDateString();
+            $attendance = $attendances->get($date); 
+
             if (!$attendance) continue;
 
-            $checkOut = Carbon::parse($scheduleDate . ' ' . $attendance->check_out_time);
-            $shiftEnd = Carbon::parse($scheduleDate . ' ' . $schedule->shift->end_time);
+            $checkOut = Carbon::parse($date . ' ' . $attendance->check_out_time);
+            $shiftEnd = Carbon::parse($date . ' ' . $schedule->shift->end_time);
  
             if ($checkOut->gt($shiftEnd)) {
-                $overtimeMinutes     = $checkOut->diffInMinutes($shiftEnd);
+                $overtimeMinutes     = $shiftEnd->diffInMinutes($checkOut);
                 $totalOvertimeHours += $overtimeMinutes / 60;
             }
         }
@@ -212,50 +290,73 @@ class PayrollController extends Controller
         return round($overtimePay, 2);
     }
 
-    private function calculateLatePay($employee_id, $month, $year, $amount): float {
-        $schedules = ShiftSchedulesDetail::with(['shift', 'shiftSchedule'])
-            ->where('employee_id', $employee_id)
-            ->whereHas('shiftSchedule', function ($q) use ($month, $year) {
-                $q->whereMonth('schedule_date', $month)
-                  ->whereYear('schedule_date', $year);
-            })
+    private function calculateLatePay(int $employee_id, $startDate, $endDate, float $amount) {
+        $schedules = ShiftSchedulesDetail::where('employee_id', $employee_id)
+            ->whereBetween('schedule_date', [$startDate, $endDate])
             ->get();
-        
+
+        if ($schedules->isEmpty()) return 0;
+            
         $totalLateHours = 0;
 
-        $scheduleDates = $schedules->map(fn($s) => $s->shiftSchedule->schedule_date)->toArray();
+        $scheduleDates = $schedules->pluck('schedule_date')->toArray();
+
         $attendances = Attendance::where('employee_id', $employee_id)
             ->whereIn('attendance_date', $scheduleDates)
-            ->whereNotNull('check_in_time')
             ->get()
             ->keyBy('attendance_date');
 
         foreach ($schedules as $schedule) {
             if ($schedule->is_off) continue;
-            
-            $shiftStartTime    = $schedule->shift->start_time;
-            $scheduleDate    = $schedule->shiftSchedule->schedule_date;
+            $date = Carbon::parse($schedule->schedule_date)->toDateString();
+            $attendance = $attendances->get($date);
 
-            $attendance = $attendances->get($scheduleDate);
-            
             if (!$attendance) continue;
 
-            $checkIn  = Carbon::parse($scheduleDate . ' ' . $attendance->check_in_time);
-            $shiftStart = Carbon::parse($scheduleDate . ' ' . $shiftStartTime);
-            $shiftStartWithGrace = $shiftStart->copy()->addMinutes(15); 
-
-            if ($checkIn->gt($shiftStart)) {
-                $lateMinutes = $checkIn->diffInMinutes($shiftStartWithGrace);
-                $totalLateHours += $lateMinutes / 60;
-            }
+            $lateMinutes = $attendance->late_minutes ?? 0;
+            $totalLateHours += $lateMinutes / 60;
         }
 
         if ($totalLateHours <= 0) return 0;
 
-        $overtimePay = $totalLateHours * $amount;
-        return round($overtimePay, 2);
+        $latePay = $totalLateHours * $amount;
+
+        return round($latePay, 2);
     }
-    
+
+    private function calculateAbsentPay(int $employee_id, $startDate, $endDate, float $amount)
+    {
+        $schedules = ShiftSchedulesDetail::where('employee_id', $employee_id)
+            ->whereBetween('schedule_date', [$startDate, $endDate])
+            ->get();
+
+        if ($schedules->isEmpty()) return 0;
+
+        $scheduleDates = $schedules->pluck('schedule_date')->toArray();
+
+        $attendances = Attendance::where('employee_id', $employee_id)
+            ->whereIn('attendance_date', $scheduleDates)
+            ->get()
+            ->keyBy('attendance_date');
+
+        $totalAbsentDays = 0;
+
+        foreach ($schedules as $schedule) {
+            if ($schedule->is_off) continue;
+
+            if (!$attendances->has($schedule->schedule_date)) {
+                $totalAbsentDays++;
+            }
+        }
+
+        if ($totalAbsentDays <= 0) return 0;
+
+        $dailyRate = $amount / 22;
+        $absentPay = $totalAbsentDays * $dailyRate;
+
+        return round($absentPay, 2);
+    }
+
     public function show($id) {
         $payroll = Payroll::where('id', $id)->first();
         if (!$payroll) {
@@ -278,5 +379,18 @@ class PayrollController extends Controller
         }
 
         return new ApiResources(true, 'Detail data payroll.', $payroll);
+    }
+
+    private function getPayrollPeriod($month, $year)
+    {
+        if ($month == 1) {
+            $startDate = Carbon::create($year, $month, 1);
+        } else {
+            $startDate = Carbon::create($year, $month - 1, 29);
+        }
+
+        $endDate = Carbon::create($year, $month, 28);
+
+        return [$startDate, $endDate];
     }
 }
