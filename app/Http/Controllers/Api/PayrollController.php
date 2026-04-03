@@ -36,25 +36,68 @@ class PayrollController extends Controller
 
     public function payroll(Request $request) {
 
-        $validate = Validator::make($request->all(), [
-            'employee_id' => 'required|exists:employees,id',
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2000|max:2100',
-            'base_salary' => 'sometimes|integer',
-        ]);
+    $validator = Validator::make($request->all(), [
+        'employee_id' => 'required|exists:employees,id',
+        'month' => 'required|integer|min:1|max:12',
+        'year' => 'required|integer|min:2000|max:2100',
 
-        $employee_id = $request->employee_id;
-        $month = $request->month;
-        $year = $request->year;
+        'allowances' => 'array',
+        'deductions' => 'array',
+    ]);
 
-        if ($validate->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => $validate->errors()
-            ], 400);
+    $validator->after(function ($validator) use ($request) {
+
+        foreach ($request->allowances ?? [] as $index => $item) {
+
+            if (!isset($item['is_custom'])) {
+                $validator->errors()->add("allowances.$index.is_custom", "is_custom wajib diisi");
+                continue;
+            }
+
+            if ($item['is_custom']) {
+                if (empty($item['name'])) {
+                    $validator->errors()->add("allowances.$index.name", "name wajib untuk custom");
+                }
+                if (!isset($item['amount'])) {
+                    $validator->errors()->add("allowances.$index.amount", "amount wajib untuk custom");
+                }
+            } else {
+                if (empty($item['allowance_id'])) {
+                    $validator->errors()->add("allowances.$index.allowance_id", "allowance_id wajib jika bukan custom");
+                }
+            }
         }
+
+        foreach ($request->deductions ?? [] as $index => $item) {
+
+            if (!isset($item['is_custom'])) {
+                $validator->errors()->add("deductions.$index.is_custom", "is_custom wajib diisi");
+                continue;
+            }
+
+            if ($item['is_custom']) {
+                if (empty($item['name'])) {
+                    $validator->errors()->add("deductions.$index.name", "name wajib untuk custom");
+                }
+                if (!isset($item['amount'])) {
+                    $validator->errors()->add("deductions.$index.amount", "amount wajib untuk custom");
+                }
+            } else {
+                if (empty($item['deduction_id'])) {
+                    $validator->errors()->add("deductions.$index.deduction_id", "deduction_id wajib jika bukan custom");
+                }
+            }
+        }
+    });
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false,
+            'message' => $validator->errors()
+        ], 422);
+    };
      
-        if (Payroll::where('employee_id', $employee_id)->where('year', $year)->where('month', $month)->exists()) {
+        if (Payroll::where('employee_id', $request->employee_id)->where('year', $request->year)->where('month', $request->month)->exists()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Payroll pada bulan tersebut sudah ada.',
@@ -68,13 +111,15 @@ class PayrollController extends Controller
             $employee = Employee::with('position')->find($request->employee_id);
             $position = $employee->position;
 
-            $startDate = $this->getPayrollPeriod($request->month, $request->year)[0];
-            $endDate   = $this->getPayrollPeriod($request->month, $request->year)[1];
+            [$startDate, $endDate] = $this->getPayrollPeriod($request->month, $request->year);
 
-            $baseSalary = $request->base_salary ? $request->base_salary : $position->base_salary; 
+            $baseSalary = $request->base_salary ?? $position->base_salary;
+
             $overtimePay = $this->calculateOvertimePay($request->employee_id, $startDate, $endDate, $baseSalary);
-            $absentPay = $this->calculateAbsentPay($request->employee_id, $startDate, $endDate, $baseSalary);
-            $total_salary = $baseSalary + $overtimePay - $absentPay;
+            $absentPay   = $this->calculateAbsentPay($request->employee_id, $startDate, $endDate, $baseSalary);
+
+            $totalAllowance = 0;
+            $totalDeduction = 0;
 
             $payroll = Payroll::create([
                 'employee_id' => $request->employee_id,
@@ -84,170 +129,100 @@ class PayrollController extends Controller
                 'total_allowance' => 0,
                 'total_deduction' => 0,
                 'overtime_pay' => $overtimePay,
-                'total_salary' => round($total_salary, 2),
+                'total_salary' => 0,
             ]);
 
+            if ($request->allowances) {
+                foreach ($request->allowances as $item) {
+
+                    if (!empty($item['allowance_id'])) {
+                        $allowance = Allowance::find($item['allowance_id']);
+
+                        $amount = $allowance->amount;
+                        $name = $allowance->allowance_name;
+                        $isCustom = false;
+
+                    } else {
+                        $amount = $item['amount'];
+                        $name = $item['name'];
+                        $isCustom = true;
+                    }
+
+                    PayrollDetail::create([
+                        'payroll_id' => $payroll->id,
+                        'allowance_id' => $item['allowance_id'] ?? null,
+                        'amount' => $amount,
+                        'name' => $name,
+                        'type' => 'allowance',
+                        'is_custom' => $isCustom
+                    ]);
+
+                    $totalAllowance += $amount;
+                }
+            }
+
+            if ($request->deductions) {
+                foreach ($request->deductions as $item) {
+
+                    if (!empty($item['deduction_id'])) {
+                        $deduction = Deduction::find($item['deduction_id']);
+
+                        $amount = $deduction->amount;
+                        $name = $deduction->deduction_name;
+                        $isCustom = false;
+
+                    } else {
+                        $amount = $item['amount'];
+                        $name = $item['name'];
+                        $isCustom = true;
+                    }
+
+                    $totalLate = 0;
+
+                    if ($name || $item->deduction_name === "late") {
+                          $startDate = $this->getPayrollPeriod($request->month, $request->year)[0];
+                            $endDate   = $this->getPayrollPeriod($request->month, $request->year)[1];
+                            $totalLate = $this->calculateLatePay($request->employee_id, $startDate, $endDate, $deduction->amount);
+                    }
+
+                    $amount = $totalLate > 0 ? $totalLate : $deduction->amount;
+
+                    PayrollDetail::create([
+                        'payroll_id' => $payroll->id,
+                        'deduction_id' => $item['deduction_id'] ?? null,
+                        'amount' => $amount,
+                        'name' => $name,
+                        'type' => 'deduction',
+                        'is_custom' => $isCustom
+                    ]);
+
+                    $totalDeduction += $amount;
+                }
+            }
+            $totalSalary = $baseSalary + $overtimePay - $absentPay + $totalAllowance - $totalDeduction;
+
+            $payroll->update([
+                'total_allowance' => $totalAllowance,
+                'total_deduction' => $totalDeduction,
+                'total_salary' => round($totalSalary, 2),
+            ]);
+
+            
+
             DB::commit();
-            return new ApiResources(true, 'Data payroll berhasil ditambahkan.', $payroll);
+
+            return new ApiResources(true, 'Payroll berhasil dibuat.', $payroll);
+
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'data' => null
             ], 500);
         }
-
     }
-
-    public function createAllowance(Request $request) {
-        $validate = Validator::make($request->all(), [
-            'payroll_id' => 'required|exists:payrolls,id',
-            'allowance_id' => 'required|exists:allowances,id',
-            'name' => 'sometimes|string',
-            'is_custom' => 'sometimes|string',
-            'amount' => 'sometimes|integer'
-        ]);
-
-        if ($validate->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => $validate->errors()
-            ], 422);
-        }
-
-        $allowace = Allowance::where('id', $request->allowance_id)->first();
-
-        if (!$allowace) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data allowance tidak ditemukan.'
-            ], 404);
-        }
-
-        $payroll = Payroll::where('id', $request->payroll_id)->first();
-
-        if (!$payroll) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data payroll tidak ditemukan.'
-            ], 404);
-        }
-
-        if (PayrollDetail::where('payroll_id', $request->payroll_id)->where('allowance_id', $request->allowance_id)->exists()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data allowance sudah ada.'
-            ], 422);
-        }
-
-        if ($request->is_custom) {
-            $payrollDetail = PayrollDetail::create([
-                'payroll_id' => $request->payroll_id,
-                'allowance_id' => $request->allowance_id,
-                'amount' => $request->amount,
-                'name' => $request->name,
-                'type' => 'allowance',
-                'is_custom' => true
-            ]);
-        } else {
-            $payrollDetail = PayrollDetail::create([
-                'payroll_id' => $request->payroll_id,
-                'allowance_id' => $request->allowance_id,
-                'amount' => $allowace->amount,
-                'name' => $allowace->allowance_name,
-                'type' => 'allowance',
-                'is_custom' => false
-            ]);
-        }
-
-        $finalAmount = $request->is_custom ? $request->amount : $allowace->amount;
-        $payroll->increment('total_allowance', $finalAmount);
-        $payroll->increment('total_salary', $finalAmount);
-
-        return new ApiResources(true, 'Data allowance berhasil ditambahkan.', $payrollDetail);
-    }
-
-    public function createDeduction(Request $request) {
-        $validate = Validator::make($request->all(), [
-            'payroll_id' => 'required|exists:payrolls,id',
-            'deduction_id' => 'required|exists:deductions,id',
-            'is_custom' => 'sometimes|string',
-            'amount' => 'sometimes|integer',
-            'name' => 'sometimes|string'
-        ]);
-
-        if ($validate->fails()) {
-            return response()->json([
-                'status' => false,
-                'message' => $validate->errors()
-            ], 422);
-        }
-
-        $deduction = Deduction::where('id', $request->deduction_id)->first();
-
-        if (!$deduction) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data deduction tidak ditemukan.'
-            ], 404);
-        }
-
-        $payroll = Payroll::where('id', $request->payroll_id)->first();
-
-        if (!$payroll) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data payroll tidak ditemukan.'
-            ], 404);
-        }
-
-        if (PayrollDetail::where('payroll_id', $request->payroll_id)->where('deduction_id', $request->deduction_id)->exists()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Data deduction sudah ada.'
-            ], 422);
-        }
-
-        $employee_id = $payroll->employee_id;
-
-        $totalLate = 0;
-
-        
-        if ($deduction->deduction_name == 'late') {
-            $startDate = $this->getPayrollPeriod($request->month, $request->year)[0];
-            $endDate   = $this->getPayrollPeriod($request->month, $request->year)[1];
-            $totalLate = $this->calculateLatePay($employee_id, $startDate, $endDate, $deduction->amount);
-        }
-
-        $totalLate = $totalLate > 0 ? $totalLate : $deduction->amount;
-        
-        if ($request->is_custom) {
-            $payrollDetail = PayrollDetail::create([
-                'payroll_id' => $request->payroll_id,
-                'deduction_id' => $request->deduction_id,
-                'amount' => $request->amount,
-                'name' => $request->name,
-                'type' => 'deduction',
-                'is_custom' => true
-            ]);
-        } else {
-            $payrollDetail = PayrollDetail::create([
-                'payroll_id' => $request->payroll_id,
-                'deduction_id' => $request->deduction_id,
-                'amount' => $totalLate,
-                'name' => $deduction->deduction_name,
-                'type' => 'deduction',
-                'is_custom' => false
-            ]);
-        }
-
-        $payroll->increment('total_deduction', $totalLate);
-        $payroll->decrement('total_salary', $totalLate);
-
-        return new ApiResources(true, 'Data deduction berhasil ditambahkan.', $payrollDetail);
-    }
-
+    
     private function calculateOvertimePay(int $employee_id, $startDate, $endDate, float $base_salary) {
       $schedules = ShiftSchedulesDetail::where('employee_id', $employee_id)
             ->whereBetween('schedule_date', [$startDate, $endDate])

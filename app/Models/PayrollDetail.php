@@ -15,6 +15,7 @@ class PayrollDetail extends Model
         'name',
         'is_custom',
         'amount',
+        'type'
     ];
 
     public function allowance(): BelongsTo
