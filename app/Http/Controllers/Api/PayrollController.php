@@ -17,10 +17,12 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use PHPStan\PhpDocParser\Ast\PhpDoc\RequireExtendsTagValueNode;
 
 class PayrollController extends Controller
 {
     const OVERTIME_MULTIPLIER = 1.5;
+    const WORKING_HOURS_PER_MONTH = 173;
 
     public function index() {
         $payroll = Payroll::with(['employee', 'payrollDetails', 'paySlips'  ])->paginate(10);
@@ -117,7 +119,7 @@ class PayrollController extends Controller
 
             $overtimePay = $this->calculateOvertimePay($request->employee_id, $startDate, $endDate, $baseSalary);
             $absentPay   = $this->calculateAbsentPay($request->employee_id, $startDate, $endDate, $baseSalary);
-
+            $latePay     = $this->calculateLatePay($request->employee_id, $startDate, $endDate, $baseSalary);
             $totalAllowance = 0;
             $totalDeduction = 0;
 
@@ -129,6 +131,8 @@ class PayrollController extends Controller
                 'total_allowance' => 0,
                 'total_deduction' => 0,
                 'overtime_pay' => $overtimePay,
+                'late_pay' => $latePay,
+                'absent_pay' => $absentPay,
                 'total_salary' => 0,
             ]);
 
@@ -177,16 +181,6 @@ class PayrollController extends Controller
                         $isCustom = true;
                     }
 
-                    $totalLate = 0;
-
-                    if ($name || $item->deduction_name === "late") {
-                          $startDate = $this->getPayrollPeriod($request->month, $request->year)[0];
-                            $endDate   = $this->getPayrollPeriod($request->month, $request->year)[1];
-                            $totalLate = $this->calculateLatePay($request->employee_id, $startDate, $endDate, $deduction->amount);
-                    }
-
-                    $amount = $totalLate > 0 ? $totalLate : $deduction->amount;
-
                     PayrollDetail::create([
                         'payroll_id' => $payroll->id,
                         'deduction_id' => $item['deduction_id'] ?? null,
@@ -199,15 +193,13 @@ class PayrollController extends Controller
                     $totalDeduction += $amount;
                 }
             }
-            $totalSalary = $baseSalary + $overtimePay - $absentPay + $totalAllowance - $totalDeduction;
+            $totalSalary = $baseSalary + $overtimePay - $absentPay + $totalAllowance - $totalDeduction - $latePay;
 
             $payroll->update([
                 'total_allowance' => $totalAllowance,
                 'total_deduction' => $totalDeduction,
                 'total_salary' => round($totalSalary, 2),
             ]);
-
-            
 
             DB::commit();
 
@@ -222,79 +214,141 @@ class PayrollController extends Controller
             ], 500);
         }
     }
-    
-    private function calculateOvertimePay(int $employee_id, $startDate, $endDate, float $base_salary) {
-      $schedules = ShiftSchedulesDetail::where('employee_id', $employee_id)
+
+    public function payrollPreview(Request $request) {
+        $valitdate = Validator::make($request->all(), [
+            'employee_id' => 'required',
+            'month' => 'required',
+            'year' => 'required',
+        ]);
+
+        if ($valitdate->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $valitdate->errors(),
+            ], 422);
+        }
+        $data = $this->calculatePayroll($request);
+
+        return new ApiResources(true, 'Preview Payroll Berhasil Dibuat.', $data);
+    }
+
+    private function calculatePayroll(Request $request)
+    {
+        $employee = Employee::with('position')->find($request->employee_id);
+        $position = $employee->position;
+
+        [$startDate, $endDate] = $this->getPayrollPeriod($request->month, $request->year);
+
+        $baseSalary = $position->base_salary;
+
+        $overtimePay = $this->calculateOvertimePay($request->employee_id, $startDate, $endDate, $baseSalary);
+        $absentPay   = $this->calculateAbsentPay($request->employee_id, $startDate, $endDate, $baseSalary);
+        $latePay     = $this->calculateLatePay($request->employee_id, $startDate, $endDate, $baseSalary);
+
+        return [
+            'employee' => $employee,
+            'base_salary' => $baseSalary,
+            'overtime_pay' => $overtimePay,
+            'absent_pay' => $absentPay,
+            'late_pay' => $latePay,
+        ];
+    }
+     
+    private function calculateOvertimePay(int $employee_id, $startDate, $endDate, float $base_salary)
+    {
+        $schedules = ShiftSchedulesDetail::with('shift')
+            ->where('employee_id', $employee_id)
             ->whereBetween('schedule_date', [$startDate, $endDate])
             ->get();
 
-        if ($schedules->isEmpty()) return 0;
-            
+        if ($schedules->isEmpty() || $base_salary <= 0) return 0;
+
         $scheduleDates = $schedules->pluck('schedule_date')->toArray();
 
         $attendances = Attendance::where('employee_id', $employee_id)
             ->whereIn('attendance_date', $scheduleDates)
             ->get()
-            ->keyBy('attendance_date');
-        
-        $totalOvertimeHours = 0;
-        
+            ->keyBy(fn($item) => Carbon::parse($item->attendance_date)->toDateString());
+
+        $totalOvertimeMinutes = 0;
+
         foreach ($schedules as $schedule) {
             if ($schedule->is_off) continue;
 
-            $date = Carbon::parse($schedule->schedule_date)->toDateString();
-            $attendance = $attendances->get($date); 
+            if (!$schedule->shift) continue;
 
-            if (!$attendance) continue;
+            $date = Carbon::parse($schedule->schedule_date)->toDateString();
+            $attendance = $attendances->get($date);
+
+            if (!$attendance || !$attendance->check_out_time) continue;
 
             $checkOut = Carbon::parse($date . ' ' . $attendance->check_out_time);
             $shiftEnd = Carbon::parse($date . ' ' . $schedule->shift->end_time);
- 
+
+            if ($shiftEnd->lt(Carbon::parse($date . ' 12:00:00'))) {
+                $shiftEnd->addDay();
+            }
+
             if ($checkOut->gt($shiftEnd)) {
-                $overtimeMinutes     = $shiftEnd->diffInMinutes($checkOut);
-                $totalOvertimeHours += $overtimeMinutes / 60;
+                $overtimeMinutes = $shiftEnd->diffInMinutes($checkOut);
+
+                $overtimeMinutes = min($overtimeMinutes, 480);
+
+                $totalOvertimeMinutes += $overtimeMinutes;
             }
         }
-        
-        if ($totalOvertimeHours <= 0) return 0;
-        if ($base_salary <= 0) return 0;
 
-        $hourlyRate  = $base_salary / 173;
-        $overtimePay = $hourlyRate * self::OVERTIME_MULTIPLIER * $totalOvertimeHours;
+        if ($totalOvertimeMinutes <= 0) return 0;
+
+        $hourlyRate = $base_salary / self::WORKING_HOURS_PER_MONTH;
+
+        $overtimePay = $hourlyRate
+            * self::OVERTIME_MULTIPLIER
+            * ($totalOvertimeMinutes / 60);
 
         return round($overtimePay, 2);
     }
 
-    private function calculateLatePay(int $employee_id, $startDate, $endDate, float $amount) {
+    private function calculateLatePay(int $employee_id, $startDate, $endDate, float $base_salary)
+    {
         $schedules = ShiftSchedulesDetail::where('employee_id', $employee_id)
             ->whereBetween('schedule_date', [$startDate, $endDate])
             ->get();
 
         if ($schedules->isEmpty()) return 0;
-            
-        $totalLateHours = 0;
 
         $scheduleDates = $schedules->pluck('schedule_date')->toArray();
 
         $attendances = Attendance::where('employee_id', $employee_id)
             ->whereIn('attendance_date', $scheduleDates)
             ->get()
-            ->keyBy('attendance_date');
+            ->keyBy(fn($item) => Carbon::parse($item->attendance_date)->toDateString());
+
+        $totalLateMinutes = 0;
 
         foreach ($schedules as $schedule) {
             if ($schedule->is_off) continue;
+
             $date = Carbon::parse($schedule->schedule_date)->toDateString();
             $attendance = $attendances->get($date);
 
-            if (!$attendance) continue;
+            if (
+                !$attendance ||
+                !$attendance->check_in_time 
+            ) {
+                continue; 
+            }
 
             $lateMinutes = $attendance->late_minutes ?? 0;
-            $totalLateHours += $lateMinutes / 60;
+            $lateMinutes = min($lateMinutes, 480);
+            $totalLateMinutes += $lateMinutes;
         }
 
-        if ($totalLateHours <= 0) return 0;
+        if ($totalLateMinutes <= 0) return 0;
 
-        $latePay = $totalLateHours * $amount;
+        $hourlyRate = $base_salary / 173;
+        $latePay = $hourlyRate * ($totalLateMinutes / 60);
 
         return round($latePay, 2);
     }
@@ -319,14 +373,22 @@ class PayrollController extends Controller
         foreach ($schedules as $schedule) {
             if ($schedule->is_off) continue;
 
-            if (!$attendances->has($schedule->schedule_date)) {
+            $date = Carbon::parse($schedule->schedule_date)->toDateString();
+            $attendance = $attendances->get($date);
+
+            if (
+                !$attendance ||
+                !$attendance->check_in_time 
+            ) {
                 $totalAbsentDays++;
             }
         }
 
         if ($totalAbsentDays <= 0) return 0;
 
-        $dailyRate = $amount / 22;
+        $workingDays = $schedules->where('is_off', false)->count();
+
+        $dailyRate = $amount / $workingDays;
         $absentPay = $totalAbsentDays * $dailyRate;
 
         return round($absentPay, 2);
@@ -368,4 +430,5 @@ class PayrollController extends Controller
 
         return [$startDate, $endDate];
     }
+
 }

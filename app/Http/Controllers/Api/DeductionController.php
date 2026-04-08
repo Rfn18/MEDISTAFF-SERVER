@@ -105,4 +105,16 @@ class DeductionController extends Controller
         $deduction->delete();
         return new ApiResources(true, 'Data deduction berhasil dihapus.', $deduction);
     }
+
+    public function getAmountLate() {
+        $deduction = Deduction::whereIn('deduction_name', ['late', 'terlambat'])->first();
+        if (!$deduction) {
+            return response()->json([
+                'status'=> false,
+                'message'=> 'Data deduction tidak ditemukan.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'Amount late.', $deduction);
+    }
 }

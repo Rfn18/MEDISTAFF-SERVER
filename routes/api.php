@@ -42,10 +42,9 @@ Route::apiResource('deductions', DeductionController::class);
 Route::apiResource('payrolls', PayrollController::class);
 Route::post('payroll-by-period', [PayrollController::class, 'showByPeriod']);
 Route::post('payroll-generates', [PayrollController::class, 'payroll']);
+Route::post('payroll-preview', [PayrollController::class, 'payrollPreview']);
 Route::post('payroll-deductions', [PayrollController::class, 'createDeduction']);
 Route::post('payroll-allowances', [PayrollController::class, 'createAllowance']);
-
-
 // Attandance Routes
 Route::apiResource('attendance-settings', AttendanceSettingController::class);
 Route::get('attendances', [AttendanceController::class, 'index'])->middleware('auth:sanctum');
@@ -54,6 +53,8 @@ Route::post('check-out', [AttendanceController::class, 'checkOut'])->middleware(
 Route::post('summarise', [AttendanceController::class, 'summarise'])->middleware('auth:sanctum');
 Route::get('dinamic-qr', [AttendanceController::class, 'getDinamicQr']);
 Route::post('attendance-by-month', [AttendanceController::class, 'getAttendanceByMonthAndYear'])->middleware('auth:sanctum');
+Route::post('late-minutes', [AttendanceController::class, 'getLateMinutesByEmployeeInMonthAndYear']);
+Route::get('amount-late', [DeductionController::class, 'getAmountLate']);
 
 // Leave Request Routes
 Route::apiResource('leave-requests', LeaveRequestController::class)->middleware('auth:sanctum');

@@ -140,15 +140,16 @@ class ShiftScheduleDetailController extends Controller
 
         if (!$schedule) return [];
 
-        $month = $schedule->month;
-        $year  = $schedule->year;
+        $baseDate = Carbon::parse($schedule->schedule_date); 
+    
+        $month = $baseDate->month; 
+        $year  = $baseDate->year;
 
-        $daysInMonth = Carbon::create($year, $month)->daysInMonth;
+        $daysInMonth = Carbon::createFromDate($year, $month, 1)->daysInMonth;
         
         $employees = Employee::where('department_id', $schedule->departement_id)->get();
         $shifts = Shift::all();
 
-        
         $result = [];
 
         foreach ($employees as $employee) {
@@ -167,7 +168,7 @@ class ShiftScheduleDetailController extends Controller
             $isOff = in_array($day, $offIndexes);
             if ($isOff) {
                 $result[] = [
-                    'schedule_date'     => Carbon::create($year, $month, $day)->format('Y-m-d'),
+                    'schedule_date'     => Carbon::createFromDate($year, $month, $day)->format('Y-m-d'),
                     'employee_id'       => $employee->id,
                     'shift_id'          => null,
                     'shift_schedule_id' => $shift_schedule_id,

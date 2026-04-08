@@ -24,7 +24,9 @@ return new class extends Migration
             $table->decimal('base_salary', 12, 2)->default(0);
             $table->decimal('total_allowance', 12, 2)->default(0);
             $table->decimal('total_deduction', 12, 2)->default(0);
-            $table->decimal('overtime_pay', 12, 2)->default(0);
+            $table->decimal('overtime_pay', 12, 2)->default(0)->nullable();
+            $table->decimal('late_pay', 12, 2)->default(0)->nullable();
+            $table->decimal('absent_pay', 12, 2)->default(0)->nullable();
             $table->decimal('total_salary', 12, 2)->default(0);
             $table->timestamps();
         });

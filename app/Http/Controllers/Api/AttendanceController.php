@@ -456,4 +456,33 @@ use App\Models\Attendance;
             
     }
 
+    public function getLateMinutesByEmployeeInMonthAndYear(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+            'employee_id' => 'required|integer'
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()
+            ], 400);
+        }
+        
+        $startDate = "{$request->year}-" . str_pad($request->month, 2, '0', STR_PAD_LEFT);
+        
+        $attendance = Attendance::where('employee_id', $request->employee_id)->where('attendance_date', 'like', "{$startDate}%")->get();
+        if ($attendance->count() == 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tidak ada data attendance untuk employee di periode ini.'
+            ], 404);
+        }
+
+        $lateMinutes = $attendance->where('status', 'late')->sum('late_minutes');
+
+        return new ApiResources(true, 'List data attendance.', $lateMinutes);
+    }
+
 }

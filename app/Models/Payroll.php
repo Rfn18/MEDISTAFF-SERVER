@@ -16,6 +16,8 @@ class Payroll extends Model
         'base_salary',
         'total_allowance',
         'overtime_pay',
+        'late_pay',
+        'absent_pay',
         'total_deduction',
         'total_salary',
     ];
