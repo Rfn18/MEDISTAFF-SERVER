@@ -200,4 +200,17 @@ class ShiftScheduleDetailController extends Controller
 
         return $result;
     }
+
+    public function getTodaySchedule() {
+        $today = Carbon::today()->toDateString();
+        $shiftScheduleDetail = ShiftSchedulesDetail::with('employee', 'shift', 'shiftSchedule')->where('schedule_date', $today)->paginate(10);
+        if ($shiftScheduleDetail->total() === 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'List data shift schedule detail.', $shiftScheduleDetail);
+    }
 }

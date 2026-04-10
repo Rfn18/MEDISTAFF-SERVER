@@ -34,6 +34,7 @@ Route::apiResource('shifts', ShiftController::class);
 Route::apiResource('shift-schedules', ShiftScheduleController::class);
 Route::get('shift-schedules/{id}/details', [ShiftScheduleController::class, 'showDataByDepartment']);
 Route::apiResource('shift-schedule-details', ShiftScheduleDetailController::class);
+Route::get('shift-schedule-details/today', [ShiftScheduleDetailController::class, 'getTodaySchedule']);
 Route::apiResource('leave-types', LeaveTypeController::class);
 Route::apiResource('users', UserManageController::class);
 Route::apiResource('allowances', AllowanceController::class);
@@ -45,6 +46,7 @@ Route::post('payroll-generates', [PayrollController::class, 'payroll']);
 Route::post('payroll-preview', [PayrollController::class, 'payrollPreview']);
 Route::post('payroll-deductions', [PayrollController::class, 'createDeduction']);
 Route::post('payroll-allowances', [PayrollController::class, 'createAllowance']);
+
 // Attandance Routes
 Route::apiResource('attendance-settings', AttendanceSettingController::class);
 Route::get('attendances', [AttendanceController::class, 'index'])->middleware('auth:sanctum');
