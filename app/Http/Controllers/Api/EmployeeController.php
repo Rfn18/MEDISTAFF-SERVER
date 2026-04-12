@@ -168,4 +168,30 @@ class EmployeeController extends Controller
             'message' => 'Data employee tidak ditemukan.'
         ], 404);
     }
+
+    public function getEmployeeMedis()
+    {
+        $employee = Employee::with(['position', 'department'])->where('position.category', 'medis')->get();
+        if ($employee->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'List data employee medis.', $employee);
+    }
+
+    public function getEmployeeNonMedis()
+    {
+        $employee = Employee::with(['position', 'department'])->where('position.category', 'non-medis')->get();
+        if ($employee->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'List data employee non-medis.', $employee);
+    }
 }

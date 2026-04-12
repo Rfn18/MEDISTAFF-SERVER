@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('position_name');
             $table->decimal('base_salary', 12, 2)->default(0);
             $table->text('description')->nullable();
+            $table->enum('category', ['medis','non-medis'])->default('medis');
             $table->timestamps();
         });
     }

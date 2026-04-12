@@ -12,7 +12,8 @@ class Position extends Model
     protected $fillable = [
         'position_name',
         'base_salary',
-        'description'
+        'description',
+        'category'
     ];
 
     public function employees(): HasMany

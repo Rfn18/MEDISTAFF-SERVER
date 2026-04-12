@@ -29,6 +29,7 @@ class PositionController extends Controller
             'position_name' => 'required|string',
             'base_salary' => 'required|numeric',
             'description' => 'sometimes|string|max:255',
+            'category'=> 'required|in:medis,non-medis',
         ]);
 
         if ($validate->fails()) {
@@ -41,7 +42,8 @@ class PositionController extends Controller
         $position = Position::create($request->only([
             'position_name',
             'base_salary',
-            'description'
+            'description',
+            'category'
         ]));
 
         return new ApiResources(true, 'Data position berhasil ditambahkan.', $position);
@@ -66,6 +68,7 @@ class PositionController extends Controller
             'position_name' => 'sometimes|string',
             'base_salary' => 'sometimes|numeric',
             'description' => 'sometimes|string|max:255',
+            'category'=> 'sometimes|in:medis,non-medis',
         ]);
 
         if ($validate->fails()) {
@@ -80,7 +83,8 @@ class PositionController extends Controller
             $position->update($request->only([
                 'position_name',
                 'base_salary',
-                'description'
+                'description',
+                'category'
             ]));
             return new ApiResources(true, 'Data position berhasil diubah.', $position);
         }
