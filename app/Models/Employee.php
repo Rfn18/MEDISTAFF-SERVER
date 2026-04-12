@@ -27,7 +27,6 @@ class Employee extends Model
         'employee_status',
         'position_id',
         'department_id',
-        'role_id',
     ];
 
     public function position(): BelongsTo

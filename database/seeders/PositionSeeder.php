@@ -16,27 +16,38 @@ class PositionSeeder extends Seeder
         Position::create([
             'position_name' => 'Perawat',
             'base_salary' => 10000000,
-            'description' => 'Jabatan Perawat'
+            'description' => 'Jabatan Perawat',
+            'category' => 'medis'
         ]);
         Position::create([
             'position_name' => 'Dokter',
             'base_salary' => 8000000,
-            'description' => 'Jabatan Dokter'
+            'description' => 'Jabatan Dokter',
+            'category' => 'medis'
         ]);
         Position::create([
             'position_name' => 'Spesialis',
             'base_salary' => 6000000,
-            'description' => 'Jabatan Spesialis'
+            'description' => 'Jabatan Spesialis',
+            'category' => 'medis'
         ]);
         Position::create([
-            'position_name' => 'Ahli',
+            'position_name' => 'Teknisi',
             'base_salary' => 4000000,
-            'description' => 'Jabatan Ahli'
+            'description' => 'Jabatan Teknisi',
+            'category' => 'non-medis'
+        ]);
+        Position::create([
+            'position_name' => 'Cleaning Service',
+            'base_salary' => 2500000,
+            'description' => 'Jabatan Cleaning Service',
+            'category' => 'non-medis'
         ]);
         Position::create([
             'position_name' => 'HRD',
             'base_salary' => 5000000,
-            'description' => 'Jabatan HRD'
+            'description' => 'Jabatan HRD',
+            'category' => 'non-medis'
         ]);
     }
 }

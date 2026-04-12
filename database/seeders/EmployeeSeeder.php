@@ -4,49 +4,35 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class EmployeeSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('employees')->insert([
-            [
-                'nip' => 'EMP001',
-                'nik' => '3201010101010001',
-                'full_name' => 'Fasterino',
-                'gender' => 'male',
-                'birth_place' => 'Jakarta',
-                'birth_date' => '1995-05-10',
-                'address' => 'Jl. Merdeka No.1',
-                'phone_number' => '081234567890',
-                'email' => 'faster@gmail.com',
+        $employees = [];
+
+        for ($i = 1; $i <= 20; $i++) {
+            $employees[] = [
+                'nip' => 'EMP' . str_pad($i, 5, '0', STR_PAD_LEFT),
+                'nik' => '3201' . rand(100000000000, 999999999999),
+                'full_name' => fake()->name(),
+                'gender' => fake()->randomElement(['male', 'female']),
+                'birth_place' => fake()->city(),
+                'birth_date' => fake()->date('Y-m-d', '2000-01-01'),
+                'address' => fake()->address(),
+                'phone_number' => fake()->phoneNumber(),
+                'email' => fake()->unique()->safeEmail(),
                 'photo' => null,
-                'hire_date' => Carbon::now()->subYears(2),
-                'employee_status' => 'active',
-                'position_id' => 1,
-                'department_id' => 1,
+                'hire_date' => fake()->date('Y-m-d'),
+                'employee_status' => fake()->randomElement(['active', 'inactive']),
+                'position_id' => rand(1, 5), 
+                'department_id' => rand(1, 5), 
                 'created_at' => now(),
                 'updated_at' => now(),
-            ],
-            [
-                'nip' => 'EMP002',
-                'nik' => '3201010101010002',
-                'full_name' => 'Siti Aisyah',
-                'gender' => 'female',
-                'birth_place' => 'Bandung',
-                'birth_date' => '1998-08-15',
-                'address' => 'Jl. Asia Afrika',
-                'phone_number' => '081298765432',
-                'email' => 'siti@example.com',
-                'photo' => null,
-                'hire_date' => Carbon::now()->subYear(),
-                'employee_status' => 'active',
-                'position_id' => 1,
-                'department_id' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
+            ];
+        }
+
+        DB::table('employees')->insert($employees);
     }
 }

@@ -11,7 +11,8 @@ class Role extends Model
     protected $table = 'roles';
     protected $fillable = [
         'role_name',
-        'description'
+        'description',
+        'is_admin'
     ];
 
     public function User(): HasMany

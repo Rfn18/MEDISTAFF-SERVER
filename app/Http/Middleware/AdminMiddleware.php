@@ -27,7 +27,7 @@ class AdminMiddleware
 
        private function isAdmin($request)
     {
-        return $request->user()->role_id == 1 || $request->user()->role_id == 2;
+        return $request->user()->is_admin == 1;
     }
     
 }
