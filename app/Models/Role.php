@@ -19,4 +19,13 @@ class Role extends Model
     {
         return $this->hasMany(User::class, 'role_id', 'id');
     }
+
+    public function Permission(): HasMany
+    {
+        return $this->hasMany(Permission::class, 'role_id', 'id');
+    }
+    public function RolePermissions(): HasMany
+    {
+        return $this->hasMany(RolePermission::class, 'role_id', 'id');
+    }
 }

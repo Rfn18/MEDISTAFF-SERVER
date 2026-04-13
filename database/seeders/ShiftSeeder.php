@@ -31,7 +31,7 @@ class ShiftSeeder extends Seeder
             'shift_name' => 'Malam',
             'start_time' => '23:00:00',
             'end_time' => '07:00:00',
-            'description' => 'Shift sore untuk pelayanan 24 jam'
+            'description' => 'Shift malam untuk pelayanan 24 jam'
         ]);
     }
 }

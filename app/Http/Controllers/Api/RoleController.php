@@ -25,7 +25,8 @@ class RoleController extends Controller
     public function Store(Request $request) {
         $validate = Validator::make($request->all(), [
             'role_name' => 'required|string',
-            'description' => 'sometimes|string|max:255'
+            'description' => 'sometimes|string|max:255',
+            'is_admin' => 'required|boolean'
         ]);
 
         if ($validate->fails()) {
@@ -37,7 +38,8 @@ class RoleController extends Controller
 
         $role = Role::create($request->only([
             'role_name',
-            'description'
+            'description',
+            'is_admin'
         ]));
 
         return new ApiResources(true, 'Data role berhasil ditambahkan.', $role);
@@ -58,7 +60,8 @@ class RoleController extends Controller
     public function Update(Request $request, $id) {
         $validate = Validator::make($request->all(), [
             'role_name' => 'sometimes|string',
-            'description' => 'sometimes|string|max:255'
+            'description' => 'sometimes|string|max:255',
+            'is_admin' => 'sometimes|boolean'
         ]);
 
         if ($validate->fails()) {
@@ -72,7 +75,8 @@ class RoleController extends Controller
         if ($role) {
             $role->update($request->only([
                 'role_name',
-                'description'
+                'description',
+                'is_admin'
             ]));
             return new ApiResources(true, 'Data role berhasil diubah.', $role);
         }

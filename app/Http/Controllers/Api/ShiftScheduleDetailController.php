@@ -61,7 +61,7 @@ class ShiftScheduleDetailController extends Controller
             return response()->json([
                 'status'  => false, 
                 'message' => $e->getMessage()
-            ], 500);
+            ], 500);    
         }
     }
 

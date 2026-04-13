@@ -54,13 +54,6 @@ class ShiftController extends Controller
             ], 400);
         }
 
-        if (Carbon::parse($request->start_time)->gt(Carbon::parse($request->end_time))) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Waktu akhir harus lebih besar dari waktu awal.'
-            ], 400);
-        }
-
         $shift = Shift::where('shift_name', $request->shift_name)->first();
         if ($shift) {
             return response()->json([

@@ -15,11 +15,13 @@ class RoleSeeder extends Seeder
     {
         Role::create([
             'role_name' => 'Super Admin',
-            'description' => 'Mengelola seluruh data rumah sakit.'
+            'description' => 'Mengelola seluruh data rumah sakit.',
+            'is_admin' => true,
         ]);
         Role::create([
             'role_name' => 'HR Admin',
-            'description' => 'Mengelola data karyawan dan data kepegawaian Rumah Sakit.'
+            'description' => 'Mengelola data karyawan dan data kepegawaian Rumah Sakit.',
+            'is_admin' => true,
         ]);
         Role::create([
             'role_name' => 'Staff',

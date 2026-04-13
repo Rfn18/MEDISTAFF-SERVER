@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResources;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -27,14 +28,38 @@ class UserManageController extends Controller
 
     public function Store(Request $request)
     {
-        $validate = Validator::make($request->all(), [
+
+        $role = Role::find($request->role_id);
+
+        if (!$role) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Role tidak ditemukan'
+            ], 404);
+        }
+
+        $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'password' => 'required|string|min:8',
             'is_active' => 'sometimes|boolean',
-            'employee_id' => 'required|integer|exists:employees,id',
             'role_id' => 'required|integer|exists:roles,id',
-        ]);
+        ];
+
+        if ($role->is_admin) {
+            $rules['employee_id'] = 'nullable';
+        } else {
+            $rules['employee_id'] = 'required|integer|exists:employees,id';
+        }
+
+        $validate = Validator::make($request->all(), $rules);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors()
+            ], 400);
+        }
 
         if ($validate->fails()) {
             return response()->json([

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Permission extends Model
 {
@@ -15,5 +16,9 @@ class Permission extends Model
     public function roles()
     {
         return $this->belongsToMany(Role::class, 'role_permissions', 'permission_id', 'role_id');
+    }
+    public function RolePermissions(): HasMany
+    {
+        return $this->hasMany(RolePermission::class, 'permission_id', 'id');
     }
 }

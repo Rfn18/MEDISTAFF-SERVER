@@ -169,9 +169,25 @@ class EmployeeController extends Controller
         ], 404);
     }
 
+    public function getEmployeeByDepartment($id)
+    {
+        $employee = Employee::with(['position', 'department'])->where('department_id', $id)->get();
+        if ($employee->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.'
+            ], 404);
+        }
+
+        return new ApiResources(true, 'List data employee.', $employee);
+    }
+
     public function getEmployeeMedis()
     {
-        $employee = Employee::with(['position', 'department'])->where('position.category', 'medis')->get();
+        $employee = Employee::with('position')->whereHas('position', function ($query) {
+            $query->where('category', 'medis');
+        })->get();
+        
         if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,
@@ -184,7 +200,9 @@ class EmployeeController extends Controller
 
     public function getEmployeeNonMedis()
     {
-        $employee = Employee::with(['position', 'department'])->where('position.category', 'non-medis')->get();
+        $employee = Employee::with(['position', 'department'])->whereHas('position', function ($query) {
+            $query->where('category', 'non-medis');
+        })->get();
         if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,

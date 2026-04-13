@@ -19,9 +19,9 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamp('last_login_at')->nullable();
             $table->foreignId('employee_id')
-                    ->constrained('employees')
-                    ->cascadeOnUpdate()
-                    ->restrictOnDelete();
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
             $table->string('device_id')->nullable();
             $table->foreignId('role_id')
                 ->constrained('roles')

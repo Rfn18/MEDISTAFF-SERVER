@@ -40,6 +40,7 @@ class UserAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
         return new ApiResources(true, 'User berhasil login.', [
             'user' => $user,
+            'role' => $user->role,
             'token' => $token,
         ]);
     }

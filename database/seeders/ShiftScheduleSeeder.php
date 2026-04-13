@@ -44,7 +44,7 @@ class ShiftScheduleSeeder extends Seeder
                 ];
             }
 
-            DB::table('shift_schedule_details')->insert($details);
+            DB::table('shift_schedules_details')->insert($details);
         }
     }
 }
