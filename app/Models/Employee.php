@@ -29,6 +29,11 @@ class Employee extends Model
         'department_id',
     ];
 
+    public function user(): HasMany
+    {
+        return $this->hasMany(User::class, 'employee_id', 'id');
+    }
+
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class, 'position_id', 'id');

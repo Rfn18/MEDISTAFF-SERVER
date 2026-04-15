@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
      Route::get('employees/department/{id}', [EmployeeController::class, 'getEmployeeByDepartment']);
      Route::get('employee/medical-staff', [EmployeeController::class, 'getEmployeeMedis']);
      Route::get('employee/non-medical-staff', [EmployeeController::class,'getEmployeeNonMedis']);
+     Route::get('user/shift-schedule/today', [UserManageController::class, 'showUserByShiftScheduleToday']);
 
     //  Shifts
      Route::apiResource('shifts', ShiftController::class);

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResources;
 use App\Models\Role;
 use App\Models\User;
+use Carbon\Carbon;
+use App\Models\ShiftScheduleDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -142,5 +144,15 @@ class UserManageController extends Controller
     {
         $user = User::where('id', $id)->delete();
         return new ApiResources(true, 'Data user berhasil dihapus.', $user);
+    }
+
+    public function showUserByShiftScheduleToday()
+    {
+        $users = User::with('employee')
+            ->whereHas('employee.shiftSchedulesDetails', function ($query) {
+                $query->where('schedule_date', Carbon::today()->toDateString());
+            })
+            ->get();
+        return new ApiResources(true, 'Data user berhasil ditampilkan.', $users);
     }
 }

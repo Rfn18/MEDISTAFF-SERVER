@@ -29,12 +29,12 @@ return new class extends Migration
             $table->foreignId('position_id')
                 ->constrained('positions')
                 ->cascadeOnUpdate()
-                ->restrictOnDelete();
+                ->cascadeOnDelete();
 
             $table->foreignId('department_id')
                 ->constrained('departments')
                 ->cascadeOnUpdate()
-                ->restrictOnDelete();
+                ->cascadeOnDelete();
 
             $table->timestamps();
         });

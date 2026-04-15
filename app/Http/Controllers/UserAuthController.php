@@ -40,6 +40,7 @@ class UserAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
         return new ApiResources(true, 'User berhasil login.', [
             'user' => $user,
+            'employee' => $user->employee,
             'role' => $user->role,
             'token' => $token,
         ]);
@@ -53,12 +54,20 @@ class UserAuthController extends Controller
             'nip' => 'required|string|exists:employees,nip',
             'device_id' => 'required|string',
             'password' => 'required|string|min:8',
+            'confirm_password' => 'required|string|min:8',
         ]);
 
         if ($validate->fails()) {
             return response()->json([
                 'status' => false,
                 'message' => $validate->errors()
+            ], 400);
+        }
+
+        if ($request->password != $request->confirm_password) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Password dan confirm password tidak cocok.'
             ], 400);
         }
 
@@ -94,4 +103,5 @@ class UserAuthController extends Controller
             'user' => $request->user(),
         ]);
     }
+    
 }

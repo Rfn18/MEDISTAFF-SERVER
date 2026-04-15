@@ -48,9 +48,10 @@ use App\Models\Attendance;
 
             $currentPayload = $this->generateCurrentQrCode();
 
-            $timeSlotPast = floor((time() - 30) / 30);
+            $currentSlot = floor(time() / 30);
+            $pastSlot = $currentSlot - 1;
             $setting = AttendanceSetting::first();
-            $pastPayload = hash_hmac('sha256', $setting->id . $timeSlotPast, "FasterinoGanteng");
+            $pastPayload = hash_hmac('sha256', $setting->id . $pastSlot, "FasterinoGanteng");
 
             if ($request->qr_payload !== $currentPayload && $request->qr_payload !== $pastPayload) {
                 return response()->json([
@@ -63,6 +64,7 @@ use App\Models\Attendance;
 
             $now = Carbon::now();
             $today = $now->toDateString();
+
             $employee_id = User::where('id', $request->user_id)->first()->employee_id;
 
             $employee = Employee::where('id', $employee_id)->first();
@@ -87,7 +89,7 @@ use App\Models\Attendance;
 
             $scheduleDetail = ShiftSchedulesDetail::with('shift')
                 ->where('employee_id', $employee->id)
-                ->where('schedule_date', $today)
+                ->where('schedule_date', $today )
                 ->first();
 
             if (!$scheduleDetail) {
@@ -185,14 +187,15 @@ use App\Models\Attendance;
                 ], 400);
             };
 
-            
             $currentPayload = $this->generateCurrentQrCode();
 
-            $timeSlotPast = floor((time() - 30) / 30);
+            $timeSlotCurrent = floor(time() / 30);
+            $timeSlotPast = $timeSlotCurrent - 1;
             $setting = AttendanceSetting::first();
             $pastPayload = hash_hmac('sha256', $setting->id . $timeSlotPast, "FasterinoGanteng");
 
-            if ($request->qr_payload !== $currentPayload && $request->qr_payload !== $pastPayload) {
+            if ($request->qr_payload !== $currentPayload && 
+                $request->qr_payload !== $pastPayload) {
                 return response()->json([
                     'success' => false,
                     'message' => 'QR Code tidak valid atau sudah kedaluwarsa.'
@@ -200,6 +203,9 @@ use App\Models\Attendance;
             }
 
             $now = Carbon::now();
+            $now->hour(23);
+            $now->minute(30);
+            $now->second(1);
             $today    = $now->toDateString();
             $employee_id = User::where('id', $request->user_id)->first()->employee_id;
             $employee = Employee::where('id', $employee_id)->first();
@@ -213,9 +219,7 @@ use App\Models\Attendance;
 
             $scheduleDetail = ShiftSchedulesDetail::with('shift')
                 ->where('employee_id', $employee->id)
-                ->whereHas('shiftSchedule', function ($query) use ($today) {
-                    $query->where('schedule_date', $today);
-                })
+                ->where('schedule_date', $today )
                 ->first();
 
             if (!$scheduleDetail) {
@@ -228,7 +232,7 @@ use App\Models\Attendance;
             $attendance = Attendance::where('employee_id', $employee->id)
                 ->where('attendance_date', $today)
                 ->first();
-
+                
             if (!$attendance) {
                 return response()->json([
                     'success' => false,
@@ -417,6 +421,7 @@ use App\Models\Attendance;
             $secret_key = "FasterinoGanteng";
 
             $time_slot = floor(time() / 30);
+            
 
             return hash_hmac('sha256', $office->id . $time_slot, $secret_key);
         }
