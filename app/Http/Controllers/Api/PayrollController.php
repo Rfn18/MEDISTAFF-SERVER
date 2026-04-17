@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use PHPStan\PhpDocParser\Ast\PhpDoc\RequireExtendsTagValueNode;
+use App\Services\PayslipService;
+use App\Models\Payslip;
 
 class PayrollController extends Controller
 {
@@ -37,68 +39,67 @@ class PayrollController extends Controller
     }
 
     public function payroll(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'employee_id' => 'required|exists:employees,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
 
-    $validator = Validator::make($request->all(), [
-        'employee_id' => 'required|exists:employees,id',
-        'month' => 'required|integer|min:1|max:12',
-        'year' => 'required|integer|min:2000|max:2100',
+            'allowances' => 'array',
+            'deductions' => 'array',
+        ]);
 
-        'allowances' => 'array',
-        'deductions' => 'array',
-    ]);
+        $validator->after(function ($validator) use ($request) {
 
-    $validator->after(function ($validator) use ($request) {
+            foreach ($request->allowances ?? [] as $index => $item) {
 
-        foreach ($request->allowances ?? [] as $index => $item) {
-
-            if (!isset($item['is_custom'])) {
-                $validator->errors()->add("allowances.$index.is_custom", "is_custom wajib diisi");
-                continue;
-            }
-
-            if ($item['is_custom']) {
-                if (empty($item['name'])) {
-                    $validator->errors()->add("allowances.$index.name", "name wajib untuk custom");
+                if (!isset($item['is_custom'])) {
+                    $validator->errors()->add("allowances.$index.is_custom", "is_custom wajib diisi");
+                    continue;
                 }
-                if (!isset($item['amount'])) {
-                    $validator->errors()->add("allowances.$index.amount", "amount wajib untuk custom");
-                }
-            } else {
-                if (empty($item['allowance_id'])) {
-                    $validator->errors()->add("allowances.$index.allowance_id", "allowance_id wajib jika bukan custom");
-                }
-            }
-        }
 
-        foreach ($request->deductions ?? [] as $index => $item) {
-
-            if (!isset($item['is_custom'])) {
-                $validator->errors()->add("deductions.$index.is_custom", "is_custom wajib diisi");
-                continue;
-            }
-
-            if ($item['is_custom']) {
-                if (empty($item['name'])) {
-                    $validator->errors()->add("deductions.$index.name", "name wajib untuk custom");
-                }
-                if (!isset($item['amount'])) {
-                    $validator->errors()->add("deductions.$index.amount", "amount wajib untuk custom");
-                }
-            } else {
-                if (empty($item['deduction_id'])) {
-                    $validator->errors()->add("deductions.$index.deduction_id", "deduction_id wajib jika bukan custom");
+                if ($item['is_custom']) {
+                    if (empty($item['name'])) {
+                        $validator->errors()->add("allowances.$index.name", "name wajib untuk custom");
+                    }
+                    if (!isset($item['amount'])) {
+                        $validator->errors()->add("allowances.$index.amount", "amount wajib untuk custom");
+                    }
+                } else {
+                    if (empty($item['allowance_id'])) {
+                        $validator->errors()->add("allowances.$index.allowance_id", "allowance_id wajib jika bukan custom");
+                    }
                 }
             }
-        }
-    });
 
-    if ($validator->fails()) {
-        return response()->json([
-            'status' => false,
-            'message' => $validator->errors()
-        ], 422);
-    };
-     
+            foreach ($request->deductions ?? [] as $index => $item) {
+
+                if (!isset($item['is_custom'])) {
+                    $validator->errors()->add("deductions.$index.is_custom", "is_custom wajib diisi");
+                    continue;
+                }
+
+                if ($item['is_custom']) {
+                    if (empty($item['name'])) {
+                        $validator->errors()->add("deductions.$index.name", "name wajib untuk custom");
+                    }
+                    if (!isset($item['amount'])) {
+                        $validator->errors()->add("deductions.$index.amount", "amount wajib untuk custom");
+                    }
+                } else {
+                    if (empty($item['deduction_id'])) {
+                        $validator->errors()->add("deductions.$index.deduction_id", "deduction_id wajib jika bukan custom");
+                    }
+                }
+            }
+        });
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors()
+            ], 422);
+        };
+        
         if (Payroll::where('employee_id', $request->employee_id)->where('year', $request->year)->where('month', $request->month)->exists()) {
             return response()->json([
                 'success' => false,
@@ -199,6 +200,15 @@ class PayrollController extends Controller
                 'total_allowance' => $totalAllowance,
                 'total_deduction' => $totalDeduction,
                 'total_salary' => round($totalSalary, 2),
+            ]);
+            
+            $payslipService = app(PayslipService::class);
+            $fileName = $payslipService->generate_payroll($payroll);
+
+            $payslip = Payslip::create([
+                'payroll_id' => $payroll->id,
+                'employee_id' => $request->employee_id,
+                'file_path' => $fileName,
             ]);
 
             DB::commit();
