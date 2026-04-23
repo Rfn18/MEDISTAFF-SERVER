@@ -68,9 +68,9 @@
         </tr>
         <tr>
             <td>Jabatan</td>
-            <td>: {{ $employee->position->name ?? '-' }}</td>
+            <td>: {{ $employee->position->position_name ?? '-' }}</td>
             <td>Departemen</td>
-            <td>: {{ $employee->position->department ?? '-' }}</td>
+            <td>: {{ $employee->position->department->department_name ?? '-' }}</td>
         </tr>
     </table>
 

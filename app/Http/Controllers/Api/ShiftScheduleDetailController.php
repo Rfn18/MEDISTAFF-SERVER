@@ -213,4 +213,48 @@ class ShiftScheduleDetailController extends Controller
 
         return new ApiResources(true, 'List data shift schedule detail.', $shiftScheduleDetail);
     }
+
+    public function sendReminder() {
+        $tomorrow = now()->addDay()->toDateString();
+
+        $schedules = ShiftSchedulesDetail::with('employee')
+            ->whereDate('schedule_date', $tomorrow)
+            ->get();
+
+        $reminder = ScheduleReminder::where('is_active', true)->first();
+
+        foreach ($schedules as $schedule) {
+            $employee = $schedule->employee;
+            $shift = $schedule->shift;
+            $message = parsedMessage($reminder->message, [
+                'name' => $employee->full_name,
+                'shift' => $shift->shift_name,
+                'date' => $schedule->schedule_date,
+                'time' => $shift->start_time . ' - ' . $shift->end_time,
+            ]);
+
+            if ($employee && $shift && $employee->telegram_chat_id) {
+                Telegram::sendMessage([
+                    'chat_id' => $employee->telegram_chat_id,
+                    'text' => $message
+                ]);
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Reminder berhasil dikirim.'
+        ]);
+    }
+
+    private function parsedMessage($template, $data) {
+        $replacements = [
+            ':name' => $data['name'] ?? '-',
+            ':shift' => $data['shift'] ?? '-',
+            ':date' => $data['date'] ?? '-',
+            ':time' => $data['time'] ?? '-',
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $template);
+    }
 }

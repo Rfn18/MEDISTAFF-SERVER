@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Payroll;
-
+use App\Models\Payslip;
+use App\Http\Resources\ApiResources;
 
 class PayslipController extends Controller
 {
@@ -22,8 +23,15 @@ class PayslipController extends Controller
         return new ApiResources(true, 'List data payslip.', $payslip);
     }
 
-    public function show($id) {
-        $payslip = Payslip::with(['payroll', 'payroll.employee'])->find($id);
+    public function showByPayrollId(Request $request) {
+        if ($request->payroll_id == null) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Payroll ID tidak ditemukan.'
+            ], 404);
+        }
+
+        $payslip = Payslip::with(['payroll', 'payroll.employee'])->where('payroll_id', $request->payroll_id)->first();
         if (!$payslip) {
             return response()->json([
                 'status' => false,

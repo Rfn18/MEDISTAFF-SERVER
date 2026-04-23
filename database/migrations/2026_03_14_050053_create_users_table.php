@@ -27,7 +27,7 @@ return new class extends Migration
                 ->constrained('roles')
                 ->cascadeOnUpdate()
                 ->restrictOnDelete();
-
+            $table->string('telegram_chat_id')->nullable();
             $table->timestamps();
         });
 

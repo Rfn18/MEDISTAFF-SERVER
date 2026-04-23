@@ -1,487 +1,498 @@
 <?php
 
-
 namespace App\Http\Controllers\Api;
+
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ApiResources;
 use App\Models\Attendance;
-    use App\Models\AttendanceSetting;
-    use App\Models\AttendanceSumary;
-    use App\Models\LeaveRequest;
-    use App\Models\ShiftSchedulesDetail;
-    use Carbon\Carbon;
-    use Illuminate\Http\Request;
-    use App\Models\Employee;
-    use App\Models\User;
-    use Illuminate\Support\Facades\Validator;
+use App\Models\AttendanceSetting;
+use App\Models\AttendanceSumary;
+use App\Models\Employee;
+use App\Models\LeaveRequest;
+use App\Models\ShiftSchedulesDetail;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
-    class AttendanceController extends Controller
+class AttendanceController extends Controller
+{
+    public function index()
     {
-        public function index() {
-            $attendance = Attendance::paginate(10);
-            if ($attendance->isEmpty()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Data masih kosong.'
-                ], 404);
-            }   
-
-            $attendance->load('employee');
-            return new ApiResources(true, 'List data attendance.', $attendance);
+        $attendance = Attendance::paginate(10);
+        if ($attendance->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Data masih kosong.',
+            ], 404);
         }
 
-        public function checkIn(Request $request) {
-            $validator = Validator::make($request->all(), [
-                'latitude' => 'required|numeric',
-                'longitude' => 'required|numeric',
-                'device_id' => 'required|string',
-                'qr_payload' => 'required|string',
-                'user_id' => 'required|integer|exists:users,id',
-            ]);
+        $attendance->load('employee');
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $validator->errors()
-                ], 400);
-            };
+        return new ApiResources(true, 'List data attendance.', $attendance);
+    }
 
-            $currentPayload = $this->generateCurrentQrCode();
+    public function checkIn(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'device_id' => 'required|string',
+            'qr_payload' => 'required|string',
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
 
-            $currentSlot = floor(time() / 30);
-            $pastSlot = $currentSlot - 1;
-            $setting = AttendanceSetting::first();
-            $pastPayload = hash_hmac('sha256', $setting->id . $pastSlot, "FasterinoGanteng");
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors(),
+            ], 400);
+        }
 
-            if ($request->qr_payload !== $currentPayload && $request->qr_payload !== $pastPayload) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code tidak valid atau sudah kedaluwarsa.'
-                ], 403);
-            }
+        $currentPayload = $this->generateCurrentQrCode();
 
-            $gracePeriodMinutes = 15;
+        $currentSlot = floor(time() / 30);
+        $pastSlot = $currentSlot - 1;
+        $setting = AttendanceSetting::first();
+        $pastPayload = hash_hmac('sha256', $setting->id.$pastSlot, 'FasterinoGanteng');
 
-            $now = Carbon::now();
-            $today = $now->toDateString();
+        if ($request->qr_payload !== $currentPayload && $request->qr_payload !== $pastPayload) {
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code tidak valid atau sudah kedaluwarsa.',
+            ], 403);
+        }
 
-            $employee_id = User::where('id', $request->user_id)->first()->employee_id;
+        $gracePeriodMinutes = 15;
 
-            $employee = Employee::where('id', $employee_id)->first();
+        $now = Carbon::now();
+        $today = $now->toDateString();
 
-            if (!$employee) {   
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Employee tidak ditemukan.'
-                ], 404);
-            }
+        $employee_id = User::where('id', $request->user_id)->first()->employee_id;
 
-            $alreadyCheckedIn = Attendance::where('employee_id', $employee->id)
-                ->where('attendance_date', $today)
-                ->exists();
+        $employee = Employee::where('id', $employee_id)->first();
 
-            if ($alreadyCheckedIn) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sudah check-in hari ini.'
-                ], 400);
-            }
+        if (!$employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee tidak ditemukan.',
+            ], 404);
+        }
 
-            $scheduleDetail = ShiftSchedulesDetail::with('shift')
-                ->where('employee_id', $employee->id)
-                ->where('schedule_date', $today )
-                ->first();
+        $alreadyCheckedIn = Attendance::where('employee_id', $employee->id)
+            ->where('attendance_date', $today)
+            ->exists();
 
-            if (!$scheduleDetail) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Belum ada schedule untuk hari ini.'
-                ], 404);
-            }
+        if ($alreadyCheckedIn) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sudah check-in hari ini.',
+            ], 400);
+        }
 
-            if ($scheduleDetail->is_off) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda terjadwal libur hari ini.'
-                ], 400);
-            }
+        $scheduleDetail = ShiftSchedulesDetail::with('shift')
+            ->where('employee_id', $employee->id)
+            ->where('schedule_date', $today)
+            ->first();
 
-            $longitude = $request->longitude;
-            $latitude  = $request->latitude;
+        if (! $scheduleDetail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Belum ada schedule untuk hari ini.',
+            ], 404);
+        }
 
-            $attandanceSetting = AttendanceSetting::first();
-            
-            if (!$attandanceSetting) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lokasi kantor belum di tentukan.'
-                ], 404);
-            }
+        if ($scheduleDetail->is_off) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda terjadwal libur hari ini.',
+            ], 400);
+        }
 
-            $nearbyLocations = AttendanceSetting::query()
+        $longitude = $request->longitude;
+        $latitude = $request->latitude;
+
+        $attandanceSetting = AttendanceSetting::first();
+
+        if (! $attandanceSetting) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lokasi kantor belum di tentukan.',
+            ], 404);
+        }
+
+        $nearbyLocations = AttendanceSetting::query()
             ->whereRaw('ST_Distance_Sphere(point(longitude, latitude), point(?, ?)) <= ?', [
                 $longitude,
                 $latitude,
-                $attandanceSetting->radius_meters
+                $attandanceSetting->radius_meters,
             ])
             ->get();
 
-            $user = User::where('id', $request->user_id)->first();
-            $main_device_id = $user->device_id;
+        $user = User::where('id', $request->user_id)->first();
+        $main_device_id = $user->device_id;
 
-            if ($main_device_id !== $request->device_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Device id tidak sesuai.'
-                ], 400);
-            }
-
-            if ($nearbyLocations->count() === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda berada di luar area absensi.'
-                ], 404);
-            }
-        
-            $shiftStart = Carbon::parse($scheduleDetail->shift->start_time);
-            $cutoff     = $shiftStart->copy()->addMinutes($gracePeriodMinutes);
-            $lateMinutes = $cutoff->diffInMinutes($now);
-            
-            if ($now->lessThan($shiftStart)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Belum waktunya check-in, jadwal anda ' . $shiftStart
-                ], 400);
-            }   
-
-            $status = $now->lessThanOrEqualTo($cutoff) ? 'present' : 'late';
-            
-            $attandance = Attendance::create([
-                'employee_id'    => $employee->id,
-                'attendance_date' => $today,
-                'check_in_time'  => $now->toTimeString(),
-                'status'         => $status,
-                'late_minutes'   => $lateMinutes < 0 ? 0 : $lateMinutes,
-                'longitude'      => $longitude,
-                'latitude'       => $latitude,
-                'device_id'      => $request->device_id
-            ]);
-
-            return new ApiResources(true, 'Data attendance berhasil dibuat.', $attandance);
+        if ($main_device_id !== $request->device_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device id tidak sesuai.',
+            ], 400);
         }
 
-        public function checkOut(Request $request) {
+        if ($nearbyLocations->count() === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda berada di luar area absensi.',
+            ], 404);
+        }
 
-            $validator = Validator::make($request->all(), [
-                'latitude' => 'required|numeric',
-                'longitude' => 'required|numeric',
-                'device_id' => 'required|string',
-                'qr_payload' => 'required|string',
-                'user_id'=> 'required|exists:users,id',
-            ]);
+        $shiftStart = Carbon::parse($scheduleDetail->shift->start_time);
+        $cutoff = $shiftStart->copy()->addMinutes($gracePeriodMinutes);
+        $lateMinutes = $cutoff->diffInMinutes($now);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $validator->errors()
-                ], 400);
-            };
+        if ($now->lessThan($shiftStart)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Belum waktunya check-in, jadwal anda '.$shiftStart,
+            ], 400);
+        }
 
-            $currentPayload = $this->generateCurrentQrCode();
+        $status = $now->lessThanOrEqualTo($cutoff) ? 'present' : 'late';
 
-            $timeSlotCurrent = floor(time() / 30);
-            $timeSlotPast = $timeSlotCurrent - 1;
-            $setting = AttendanceSetting::first();
-            $pastPayload = hash_hmac('sha256', $setting->id . $timeSlotPast, "FasterinoGanteng");
+        $attandance = Attendance::create([
+            'employee_id' => $employee->id,
+            'attendance_date' => $today,
+            'check_in_time' => $now->toTimeString(),
+            'status' => $status,
+            'late_minutes' => $lateMinutes < 0 ? 0 : $lateMinutes,
+            'longitude' => $longitude,
+            'latitude' => $latitude,
+            'device_id' => $request->device_id,
+        ]);
 
-            if ($request->qr_payload !== $currentPayload && 
-                $request->qr_payload !== $pastPayload) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'QR Code tidak valid atau sudah kedaluwarsa.'
-                ], 403);
-            }
+        return new ApiResources(true, 'Data attendance berhasil dibuat.', $attandance);
+    }
 
-            $now = Carbon::now();
-            $now->hour(23);
-            $now->minute(30);
-            $now->second(1);
-            $today    = $now->toDateString();
-            $employee_id = User::where('id', $request->user_id)->first()->employee_id;
-            $employee = Employee::where('id', $employee_id)->first();
-            
-            if (!$employee) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Employee tidak ditemukan.'
-                ], 404);
-            }
+    public function checkOut(Request $request)
+    {
 
-            $scheduleDetail = ShiftSchedulesDetail::with('shift')
-                ->where('employee_id', $employee->id)
-                ->where('schedule_date', $today )
-                ->first();
+        $validator = Validator::make($request->all(), [
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'device_id' => 'required|string',
+            'qr_payload' => 'required|string',
+            'user_id' => 'required|exists:users,id',
+        ]);
 
-            if (!$scheduleDetail) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Belum ada schedule untuk hari ini.'
-                ], 404);
-            }
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors(),
+            ], 400);
+        }
 
-            $attendance = Attendance::where('employee_id', $employee->id)
-                ->where('attendance_date', $today)
-                ->first();
-                
-            if (!$attendance) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Belum check-in hari ini.'
-                ], 400);
-            }
+        $currentPayload = $this->generateCurrentQrCode();
 
-            if ($attendance->check_out_time) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sudah check-out hari ini.'
-                ], 400);
-            }
+        $timeSlotCurrent = floor(time() / 30);
+        $timeSlotPast = $timeSlotCurrent - 1;
+        $setting = AttendanceSetting::first();
+        $pastPayload = hash_hmac('sha256', $setting->id.$timeSlotPast, 'FasterinoGanteng');
 
-            $main_device_id = User::where('id', $request->user_id)->first()->device_id;
+        if ($request->qr_payload !== $currentPayload &&
+            $request->qr_payload !== $pastPayload) {
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code tidak valid atau sudah kedaluwarsa.',
+            ], 403);
+        }
 
-            if ($main_device_id !== $request->device_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Device id tidak sesuai.'
-                ], 400);
-            }
+        $now = Carbon::now();
+        $now->hour(23);
+        $now->minute(30);
+        $now->second(1);
+        $today = $now->toDateString();
+        $employee_id = User::where('id', $request->user_id)->first()->employee_id;
+        $employee = Employee::where('id', $employee_id)->first();
 
-            $longitude = $request->longitude;
-            $latitude  = $request->latitude;
+        if (! $employee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Employee tidak ditemukan.',
+            ], 404);
+        }
 
-            $attandanceSetting = AttendanceSetting::first();
+        $scheduleDetail = ShiftSchedulesDetail::with('shift')
+            ->where('employee_id', $employee->id)
+            ->where('schedule_date', $today)
+            ->first();
 
-            $nearbyLocations = AttendanceSetting::query()
+        if (! $scheduleDetail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Belum ada schedule untuk hari ini.',
+            ], 404);
+        }
+
+        $attendance = Attendance::where('employee_id', $employee->id)
+            ->where('attendance_date', $today)
+            ->first();
+
+        if (! $attendance) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Belum check-in hari ini.',
+            ], 400);
+        }
+
+        if ($attendance->check_out_time) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sudah check-out hari ini.',
+            ], 400);
+        }
+
+        $main_device_id = User::where('id', $request->user_id)->first()->device_id;
+
+        if ($main_device_id !== $request->device_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device id tidak sesuai.',
+            ], 400);
+        }
+
+        $longitude = $request->longitude;
+        $latitude = $request->latitude;
+
+        $attandanceSetting = AttendanceSetting::first();
+
+        $nearbyLocations = AttendanceSetting::query()
             ->whereRaw('ST_Distance_Sphere(point(longitude, latitude), point(?, ?)) <= ?', [
                 $longitude,
                 $latitude,
-                $attandanceSetting->radius_meters
+                $attandanceSetting->radius_meters,
             ])
             ->get();
 
-            if ($nearbyLocations->count() === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda berada di luar area absensi.'
-                ], 404);
-            }
-
-            $endTime = Carbon::parse($scheduleDetail->shift->end_time);
-            
-            if ($now->lessThan($endTime)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Belum waktunya check-out.'
-                ], 400);
-            }
-
-            $attendance->update([
-                'longitude' => $longitude,
-                'latitude'  => $latitude
-            ]);
-
-            $attendance->update([
-                'check_out_time' => $now->toTimeString()
-            ]);
-
-            return new ApiResources(true, 'Data attendance berhasil diubah.', $attendance);
+        if ($nearbyLocations->count() === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda berada di luar area absensi.',
+            ], 404);
         }
 
-        public function summarise(Request $request) {
-            $validate = Validator::make($request->all(), [
-                'employee_id' => 'required|exists:employees,id',
-                'month' => 'required|integer|min:1|max:12',
-                'year' => 'required|integer|min:2000|max:2100'
-            ]);
-            
-            if ($validate->fails()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => $validate->errors()
-                ], 400);
-            }
+        $endTime = Carbon::parse($scheduleDetail->shift->end_time);
 
-            $employeeId = $request->employee_id;
-            $month = $request->month;
-            $year = $request->year;
+        if ($now->lessThan($endTime)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Belum waktunya check-out.',
+            ], 400);
+        }
 
-            $shiftDetails = ShiftSchedulesDetail::where('employee_id', $employeeId)
-                ->whereHas('shiftSchedule', function ($query) use ($month, $year) {
-                    $query->whereMonth('schedule_date', $month)
-                        ->whereYear('schedule_date', $year);
-                })
-                ->with(['shiftSchedule', 'shift'])
-                ->get();
+        $attendance->update([
+            'longitude' => $longitude,
+            'latitude' => $latitude,
+        ]);
 
-            $totalScheduledDays = $shiftDetails->count();
+        $attendance->update([
+            'check_out_time' => $now->toTimeString(),
+        ]);
 
-            if ($totalScheduledDays === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tidak ada jadwal shift untuk employee di periode ini.'
-                ], 404);
-            }
+        return new ApiResources(true, 'Data attendance berhasil diubah.', $attendance);
+    }
 
-            $attendances = Attendance::where('employee_id', $employeeId)
-                ->whereMonth('attendance_date', $month)
-                ->whereYear('attendance_date', $year)
-                ->get();
+    public function summarise(Request $request)
+    {
+        $validate = Validator::make($request->all(), [
+            'employee_id' => 'required|exists:employees,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+        ]);
 
-            $attendanceByStatus = $attendances->groupBy('status');
+        if ($validate->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validate->errors(),
+            ], 400);
+        }
 
-            $totalOnTime = $attendanceByStatus->get('present', collect())->count();
-            $totalLate = $attendanceByStatus->get('late', collect())->count();
-            $totalPresent = $totalOnTime + $totalLate;
+        $employeeId = $request->employee_id;
+        $month = $request->month;
+        $year = $request->year;
 
-            $leaveRequests = LeaveRequest::where('employee_id', $employeeId)
+        $shiftDetails = ShiftSchedulesDetail::where('employee_id', $employeeId)
+            ->whereHas('shiftSchedule', function ($query) use ($month, $year) {
+                $query->whereMonth('schedule_date', $month)
+                    ->whereYear('schedule_date', $year);
+            })
+            ->with(['shiftSchedule', 'shift'])
+            ->get();
+
+        $totalScheduledDays = $shiftDetails->count();
+
+        if ($totalScheduledDays === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada jadwal shift untuk employee di periode ini.',
+            ], 404);
+        }
+
+        $attendances = Attendance::where('employee_id', $employeeId)
+            ->whereMonth('attendance_date', $month)
+            ->whereYear('attendance_date', $year)
+            ->get();
+
+        $attendanceByStatus = $attendances->groupBy('status');
+
+        $totalOnTime = $attendanceByStatus->get('present', collect())->count();
+        $totalLate = $attendanceByStatus->get('late', collect())->count();
+        $totalPresent = $totalOnTime + $totalLate;
+
+        $leaveRequests = LeaveRequest::where('employee_id', $employeeId)
             ->where('status', 'approved')
             ->where(function ($query) use ($month, $year) {
                 $query->where(function ($q) use ($month, $year) {
                     $q->whereMonth('start_date', $month)
-                    ->whereYear('start_date', $year);
+                        ->whereYear('start_date', $year);
                 })->orWhere(function ($q) use ($month, $year) {
                     $q->whereMonth('end_date', $month)
-                    ->whereYear('end_date', $year);
+                        ->whereYear('end_date', $year);
                 })->orWhere(function ($q) use ($month, $year) {
                     $startOfMonth = "{$year}-{$month}-01";
                     $endOfMonth = date('Y-m-t', strtotime($startOfMonth));
                     $q->where('start_date', '<', $startOfMonth)
-                    ->where('end_date', '>', $endOfMonth);
+                        ->where('end_date', '>', $endOfMonth);
                 });
             })
             ->with('leaveType')
             ->get();
-            $totalLeaveDays = 0;
-            $totalSickDays = 0;
-            
-            foreach ($leaveRequests as $leave) {
-                $leaveDaysInMonth = $this->calculateLeaveDaysInMonth(
-                    $leave->start_date,
-                    $leave->end_date,
-                    $month,
-                    $year
-                );
+        $totalLeaveDays = 0;
+        $totalSickDays = 0;
 
-                if ($leave->leave_type_id == 1) {
-                    $totalSickDays += $leaveDaysInMonth;
-                } else {
-                    $totalLeaveDays += $leaveDaysInMonth;
-                }
+        foreach ($leaveRequests as $leave) {
+            $leaveDaysInMonth = $this->calculateLeaveDaysInMonth(
+                $leave->start_date,
+                $leave->end_date,
+                $month,
+                $year
+            );
+
+            if ($leave->leave_type_id == 1) {
+                $totalSickDays += $leaveDaysInMonth;
+            } else {
+                $totalLeaveDays += $leaveDaysInMonth;
             }
-            
-            $totalOffDays = $shiftDetails->where('is_off', true)->count();
-            $totalAbsent = max(0, $totalScheduledDays - $totalPresent - $totalLeaveDays - $totalSickDays - $totalOffDays);
-            
-            $summary = AttendanceSumary::updateOrCreate([
-                'employee_id' => $employeeId,
-                'month' => $month,
-                'year' => $year
-            ], [
-                'total_present' => $totalPresent,
-                'total_late' => $totalLate,
-                'total_absent' => $totalAbsent,
-                'total_leave' => $totalLeaveDays,
-                'total_sick' => $totalSickDays,
-                'total_off' => $totalOffDays
-            ]);
-            
-            return new ApiResources(true, 'Berhasiil Input Rankuman Absen.', $summary);
-        }
-        private function calculateLeaveDaysInMonth($startDate, $endDate, $month, $year)
-        {
-            $start = new \DateTime($startDate);
-            $end = new \DateTime($endDate);
-            
-            $monthStart = new \DateTime("{$year}-{$month}-01");
-            $monthEnd = new \DateTime($monthStart->format('Y-m-t'));
-            
-            $effectiveStart = max($start, $monthStart);
-            $effectiveEnd = min($end, $monthEnd);
-            
-            if ($effectiveStart > $effectiveEnd) {
-                return 0;
-            }
-        
-            $diff = $effectiveStart->diff($effectiveEnd);
-            return $diff->days + 1;
-        }
-        
-        private function generateCurrentQrCode() {
-            $office = AttendanceSetting::first();
-            $secret_key = "FasterinoGanteng";
-
-            $time_slot = floor(time() / 30);
-            
-
-            return hash_hmac('sha256', $office->id . $time_slot, $secret_key);
         }
 
-        public function getDinamicQr() {
-            return response()->json([
-                'success' => true,
-                'qr_payload' => $this->generateCurrentQrCode()
-            ]);
-        }
+        $totalOffDays = $shiftDetails->where('is_off', true)->count();
+        $totalAbsent = max(0, $totalScheduledDays - $totalPresent - $totalLeaveDays - $totalSickDays - $totalOffDays);
 
-        public function getAttendanceByMonthAndYear(Request $request) {
-            $validator = Validator::make($request->all(), [
-                'month' => 'required|integer|min:1|max:12',
-                'year' => 'required|integer|min:2000|max:2100'
-            ]);
-            
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => $validator->errors()
-                ], 400);
-            }
-            
-            $startDate = "{$request->year}-" . str_pad($request->month, 2, '0', STR_PAD_LEFT);
-            
-            $attendance = Attendance::where('employee_id', auth()->user()->employee_id)->where('attendance_date', 'like', "{$startDate}%")->get();
-            if ($attendance->count() == 0) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Tidak ada data attendance untuk employee di periode ini.'
-                ], 404);
-            }
+        $summary = AttendanceSumary::updateOrCreate([
+            'employee_id' => $employeeId,
+            'month' => $month,
+            'year' => $year,
+        ], [
+            'total_present' => $totalPresent,
+            'total_late' => $totalLate,
+            'total_absent' => $totalAbsent,
+            'total_leave' => $totalLeaveDays,
+            'total_sick' => $totalSickDays,
+            'total_off' => $totalOffDays,
+        ]);
 
-            $attendance->load('employee');  
-            return new ApiResources(true, 'List data attendance.', $attendance);
-            
+        return new ApiResources(true, 'Berhasiil Input Rankuman Absen.', $summary);
     }
 
-    public function getLateMinutesByEmployeeInMonthAndYear(Request $request) {
+    private function calculateLeaveDaysInMonth($startDate, $endDate, $month, $year)
+    {
+        $start = new \DateTime($startDate);
+        $end = new \DateTime($endDate);
+
+        $monthStart = new \DateTime("{$year}-{$month}-01");
+        $monthEnd = new \DateTime($monthStart->format('Y-m-t'));
+
+        $effectiveStart = max($start, $monthStart);
+        $effectiveEnd = min($end, $monthEnd);
+
+        if ($effectiveStart > $effectiveEnd) {
+            return 0;
+        }
+
+        $diff = $effectiveStart->diff($effectiveEnd);
+
+        return $diff->days + 1;
+    }
+
+    private function generateCurrentQrCode()
+    {
+        $office = AttendanceSetting::first();
+        $secret_key = 'FasterinoGanteng';
+
+        $time_slot = floor(time() / 30);
+
+        return hash_hmac('sha256', $office->id.$time_slot, $secret_key);
+    }
+
+    public function getDinamicQr()
+    {
+        return response()->json([
+            'success' => true,
+            'qr_payload' => $this->generateCurrentQrCode(),
+        ]);
+    }
+
+    public function getAttendanceByMonthAndYear(Request $request)
+    {
         $validator = Validator::make($request->all(), [
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
-            'employee_id' => 'required|integer'
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => $validator->errors()
+                'message' => $validator->errors(),
             ], 400);
         }
-        
-        $startDate = "{$request->year}-" . str_pad($request->month, 2, '0', STR_PAD_LEFT);
-        
+
+        $startDate = "{$request->year}-".str_pad($request->month, 2, '0', STR_PAD_LEFT);
+
+        $attendance = Attendance::where('employee_id', auth()->user()->employee_id)->where('attendance_date', 'like', "{$startDate}%")->get();
+        if ($attendance->count() == 0) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tidak ada data attendance untuk employee di periode ini.',
+            ], 404);
+        }
+
+        $attendance->load('employee');
+
+        return new ApiResources(true, 'List data attendance.', $attendance);
+
+    }
+
+    public function getLateMinutesByEmployeeInMonthAndYear(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:2100',
+            'employee_id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => $validator->errors(),
+            ], 400);
+        }
+
+        $startDate = "{$request->year}-".str_pad($request->month, 2, '0', STR_PAD_LEFT);
+
         $attendance = Attendance::where('employee_id', $request->employee_id)->where('attendance_date', 'like', "{$startDate}%")->get();
         if ($attendance->count() == 0) {
             return response()->json([
                 'status' => false,
-                'message' => 'Tidak ada data attendance untuk employee di periode ini.'
+                'message' => 'Tidak ada data attendance untuk employee di periode ini.',
             ], 404);
         }
 
@@ -490,4 +501,18 @@ use App\Models\Attendance;
         return new ApiResources(true, 'List data attendance.', $lateMinutes);
     }
 
+    public function getAttendanceToday()
+    {
+        $today = date('Y-m-d');
+        $attendance = Attendance::where('attendance_date', $today)->paginate(10);
+
+        if ($attendance->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tidak ada data attendance untuk hari ini.',
+            ], 404);
+        }
+
+        return new ApiResources(true, 'Data attendance hari ini.', $attendance);
+    }
 }
