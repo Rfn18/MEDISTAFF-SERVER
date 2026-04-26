@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('positions', PositionController::class);
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('roles', RoleController::class);
+    Route::get('employees/search', [EmployeeController::class, 'GetEmployeeBySearch']);
     Route::apiResource('employees', EmployeeController::class);
     Route::get('employees/department/{id}', [EmployeeController::class, 'getEmployeeByDepartment']);
     Route::get('employee/medical-staff', [EmployeeController::class, 'getEmployeeMedis']);

@@ -18,11 +18,32 @@ class EmployeeController extends Controller
         if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data masih kosong.'
+                'message' => 'Data masih kosong.',
             ], 404);
         }
 
         return new ApiResources(true, 'List data employee.', $employee);
+    }
+
+    public function GetEmployeeBySearch(Request $request)
+    {
+        $search = trim($request->search ?? '');
+
+        $employee = Employee::with(['position', 'department'])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('nip', 'like', "%{$search}%")
+                        ->orWhere('nik', 'like', "%{$search}%");
+                });
+            })
+            ->paginate(10);
+
+        if ($employee->total() === 0) {
+            return response()->json(['data' => [], 'total' => 0]);
+        }
+
+        return new ApiResources(true, 'List data employee berdasarkan pencarian.', $employee);
     }
 
     public function Store(Request $request)
@@ -46,25 +67,23 @@ class EmployeeController extends Controller
         if ($validate->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => $validate->errors()
+                'message' => $validate->errors(),
             ], 422);
         }
 
         $data = $request->all();
         if ($request->hasFile('photo')) {
             $photo = $request->file('photo');
-            $photoName = time() . '.' . Str::slug($request->full_name) . '.' . $photo->getClientOriginalExtension();
+            $photoName = time().'.'.Str::slug($request->full_name).'.'.$photo->getClientOriginalExtension();
             $path = $photo->storeAs('employee', $photoName, 'public');
-            $data['photo'] = $path;  
-        }   
+            $data['photo'] = $path;
+        }
 
         $data['employee_status'] = 'active';
         $employee = Employee::create($data);
 
         return new ApiResources(true, 'Data employee berhasil ditambahkan.', $employee);
     }
-
-    
 
     public function Update(Request $request, $id)
     {
@@ -88,15 +107,15 @@ class EmployeeController extends Controller
         if ($validate->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => $validate->errors()
+                'message' => $validate->errors(),
             ], 422);
         }
 
         $employee = Employee::find($id);
-        if (!$employee) {
+        if (! $employee) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data employee tidak ditemukan.'
+                'message' => 'Data employee tidak ditemukan.',
             ], 404);
         }
 
@@ -114,41 +133,43 @@ class EmployeeController extends Controller
         }
 
         $employee->update($data);
+
         return new ApiResources(true, 'Data employee berhasil diubah.', $employee);
     }
 
     public function UpdateStatus(Request $request, $id)
     {
         $validate = Validator::make($request->all(), [
-            'employee_status' => 'required|string|in:active,inactive,terminated,resigned,on_leave'
+            'employee_status' => 'required|string|in:active,inactive,terminated,resigned,on_leave',
         ]);
 
         if ($validate->fails()) {
             return response()->json([
                 'status' => false,
-                'message' => $validate->errors()
+                'message' => $validate->errors(),
             ], 422);
         }
 
         $employee = Employee::find($id);
-        if (!$employee) {
+        if (! $employee) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data employee tidak ditemukan.'
+                'message' => 'Data employee tidak ditemukan.',
             ], 404);
         }
 
         $employee->update($request->only(['employee_status']));
+
         return new ApiResources(true, 'Status employee berhasil diubah.', $employee);
     }
 
     public function Show($id)
     {
         $employee = Employee::with(['position', 'department'])->where('id', $id)->first();
-        if (!$employee) {
+        if (! $employee) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data employee tidak ditemukan.'
+                'message' => 'Data employee tidak ditemukan.',
             ], 404);
         }
 
@@ -160,12 +181,13 @@ class EmployeeController extends Controller
         $employee = Employee::find($id);
         if ($employee) {
             $employee->delete();
+
             return new ApiResources(true, 'Data employee berhasil dihapus.', $employee);
         }
 
         return response()->json([
             'status' => false,
-            'message' => 'Data employee tidak ditemukan.'
+            'message' => 'Data employee tidak ditemukan.',
         ], 404);
     }
 
@@ -175,7 +197,7 @@ class EmployeeController extends Controller
         if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data masih kosong.'
+                'message' => 'Data masih kosong.',
             ], 404);
         }
 
@@ -187,11 +209,11 @@ class EmployeeController extends Controller
         $employee = Employee::with('position')->whereHas('position', function ($query) {
             $query->where('category', 'medis');
         })->get();
-        
+
         if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data masih kosong.'
+                'message' => 'Data masih kosong.',
             ], 404);
         }
 
@@ -206,7 +228,7 @@ class EmployeeController extends Controller
         if ($employee->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Data masih kosong.'
+                'message' => 'Data masih kosong.',
             ], 404);
         }
 

@@ -12,7 +12,7 @@ class EmployeeSeeder extends Seeder
     {
         $employees = [];
 
-        for ($i = 1; $i <= 20; $i++) {
+        for ($i = 1; $i <= 40; $i++) {
             $employees[] = [
                 'nip' => 'EMP' . str_pad($i, 5, '0', STR_PAD_LEFT),
                 'nik' => '3201' . rand(100000000000, 999999999999),
